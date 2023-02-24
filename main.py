@@ -14,8 +14,6 @@ objP = np.zeros((CellWidth * CellHeight, 3), np.float32)
 objP[:, :2] = np.mgrid[0:CellHeight, 0:CellWidth].T.reshape(-1, 2)
 
 
-
-#ToDo: Refactor in a way that this returns corners
 def interpolate_grid(coordinates, image):
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
     rows, cols, ch = image.shape
@@ -30,11 +28,11 @@ def interpolate_grid(coordinates, image):
     verticalVector = np.subtract(p4, p3)
 
     grid = []
-    for x in range(CellWidth):
-        alpha = x / (CellWidth - 1)
+    for x in range(CellHeight):
+        alpha = x / (CellHeight - 1)
         x_offset = (horizontalVector * alpha)[1:]
-        for y in range(CellHeight):
-            beta = y / (CellHeight - 1)
+        for y in range(CellWidth):
+            beta = y / (CellWidth - 1)
             y_offset = (verticalVector * beta)[:1]
             grid.append(tuple((y_offset, x_offset)))
 
@@ -52,12 +50,14 @@ def interpolate_grid(coordinates, image):
 
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     corners2 = cv.cornerSubPix(gray, np.array(reprojectedPoints), (11, 11), (-1, -1), criteria)
+    #corners2 = np.array(reprojectedPoints)
     corners2 = np.reshape(corners2, (48, 1, 2))
 
     objPoints.append(objP)
     imgPoints.append(corners2)
-    #cv.drawChessboardCorners(image, (CellHeight, CellWidth), corners2, True)
-
+    cv.drawChessboardCorners(image, (CellHeight, CellWidth), corners2, True)
+    cv.imshow('img', image)
+    cv.waitKey(500)
     global manual_points_entered
     manual_points_entered = True
 
