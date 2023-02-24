@@ -115,31 +115,40 @@ def findCorners(sampleImage):
 
 
 def findCameraIntrinsic():
-    randomFrameNumbers = set()
 
-    os.chdir("data\cam1")
-    videoName = "intrinsics.avi"
-    video = cv.VideoCapture(videoName)
+    for i in range(4):
+        randomFrameNumbers = set()
 
-    totalFrames = video.get(cv.CAP_PROP_FRAME_COUNT)
-    print("Total frame is: ", totalFrames)
+        camFolder = "cam" + str(i+1)
+        os.chdir(os.path.join("data", camFolder))
+        #os.chdir("data\cam1")
+        videoName = "intrinsics.avi"
+        video = cv.VideoCapture(videoName)
 
-    sample = int(totalFrames * 0.01)
+        totalFrames = video.get(cv.CAP_PROP_FRAME_COUNT)
+        print("Total frame is: ", totalFrames)
 
-    for i in range(sample):
-        randomFrameNumbers.add(random.randint(0, totalFrames))
-    print("Random frame number size is:", len(randomFrameNumbers))
+        sample = int(totalFrames * 0.01)
 
-    for randomFrame in randomFrameNumbers:
-        video.set(cv.CAP_PROP_POS_FRAMES, randomFrame)
-        success, image = video.read()
-        if success:
-            gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-            objectPoints, imagePoints = findCorners(image)
-            if len(objectPoints) != 0 and len(imagePoints) != 0:
-                ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objectPoints, imagePoints, gray.shape[::-1], None,
-                                                                  None)
-                print("calibrated")
+        for j in range(sample):
+            randomFrameNumbers.add(random.randint(0, totalFrames))
+        print("Random frame number size is:", len(randomFrameNumbers))
+
+        for randomFrame in randomFrameNumbers:
+            video.set(cv.CAP_PROP_POS_FRAMES, randomFrame)
+            success, image = video.read()
+            if success:
+                gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+                objectPoints, imagePoints = findCorners(image)
+                if len(objectPoints) != 0 and len(imagePoints) != 0:
+                    ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objectPoints, imagePoints, gray.shape[::-1], None,                                              None)
+                    print("calibrated")
+
+        np.savez('camera_matrix', mtx=mtx, dist=dist)
+        print("saved")
+
+        os.chdir("..")
+        os.chdir("..")
 
 
 if __name__ == '__main__':
