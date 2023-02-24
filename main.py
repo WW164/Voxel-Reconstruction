@@ -5,9 +5,19 @@ import numpy as np
 
 CellWidth = 8
 CellHeight = 6
+fourCornerCoordinates = []
+manual_points_entered = False
+# Arrays to store object points and image points from all the images.
+objPoints = []  # 3d point in real world space
+imgPoints = []  # 2d points in image plane.
+objP = np.zeros((CellWidth * CellHeight, 3), np.float32)
+objP[:, :2] = np.mgrid[0:CellHeight, 0:CellWidth].T.reshape(-1, 2)
+
+
 
 #ToDo: Refactor in a way that this returns corners
 def interpolate_grid(coordinates, image):
+    criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
     rows, cols, ch = image.shape
     pts1 = np.float32(coordinates)
     pts2 = np.float32([[0, 0], [rows, 0], [0, cols], [rows, cols]])
@@ -41,19 +51,19 @@ def interpolate_grid(coordinates, image):
         reprojectedPoints.append((reproj_x, reproj_y))
 
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-    objPoints.append(objP)
-
-    global corners2
     corners2 = cv.cornerSubPix(gray, np.array(reprojectedPoints), (11, 11), (-1, -1), criteria)
-    corners2 = np.reshape(corners2, (54, 1, 2))
+    corners2 = np.reshape(corners2, (48, 1, 2))
+
+    objPoints.append(objP)
     imgPoints.append(corners2)
-    cv.drawChessboardCorners(image, (CellHeight, CellWidth), corners2, True)
+    #cv.drawChessboardCorners(image, (CellHeight, CellWidth), corners2, True)
+
     global manual_points_entered
     manual_points_entered = True
 
 
 def click_event(event, x, y, flags, params):
-    fourCornerCoordinates = []
+    global fourCornerCoordinates
 
     if event == cv.EVENT_LBUTTONDOWN:
 
@@ -61,21 +71,19 @@ def click_event(event, x, y, flags, params):
             fourCornerCoordinates.append([x, y])
 
         if len(fourCornerCoordinates) == 4:
-            return fourCornerCoordinates
-            pass
+            cv.destroyAllWindows()
+            interpolate_grid(fourCornerCoordinates, params)
+            fourCornerCoordinates = []
+
 
         img = cv.circle(params, (int(x), int(y)), 5, (255, 0, 0), 2)
         cv.imshow('img', img)
 
 
 def findCorners(sampleImage):
+    global manual_points_entered
     # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-    objP = np.zeros((CellWidth * CellHeight, 3), np.float32)
-    objP[:, :2] = np.mgrid[0:CellHeight, 0:CellWidth].T.reshape(-1, 2)
 
-    # Arrays to store object points and image points from all the images.
-    objPoints = []  # 3d point in real world space
-    imgPoints = []  # 2d points in image plane.
 
     # termination criteria
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -88,29 +96,12 @@ def findCorners(sampleImage):
         accurateCorners = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
         imgPoints.append(accurateCorners)
 
-    #ToDo: if you uncomment this statement program won't work for now
-
-    # if not ret:
-    #     cv.imshow('img', sampleImage)
-    #     cv.setMouseCallback('img', click_event, param=sampleImage)
-    #     while not manual_points_entered:
-    #         cv.imshow('img', sampleImage)
-    #         cv.waitKey(0)
-    #
-    #     #ToDo: This captures the event return value
-    #     fourCornerCoordinates = []
-    #     while len(fourCornerCoordinates) < 4:
-    #         key = cv.waitKey(1)
-    #         if key == ord('q'):
-    #             break
-    #         elif key == ord('c'):
-    #             coords = click_event(None, None, None, None, sampleImage)
-    #             if coords is not None:
-    #                 fourCornerCoordinates = coords
-    #     #ToDo: This uses the corners found manually and the image to find other corners and returns ... (what do you think it
-    #      should return to match the other part of the code?)
-    #     interpolate_grid(fourCornerCoordinates, sampleImage)
-
+    if not ret:
+        cv.imshow('img', sampleImage)
+        cv.setMouseCallback('img', click_event, param=sampleImage)
+        while not manual_points_entered:
+            cv.imshow('img', sampleImage)
+            cv.waitKey(500)
     return objPoints, imgPoints
 
 
