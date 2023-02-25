@@ -47,22 +47,21 @@ def interpolate_grid(coordinates, image):
         reproj_x = x / z
         reproj_y = y / z
         reprojectedPoints.append((reproj_x, reproj_y))
-
+    
+    global corners2
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     corners2 = cv.cornerSubPix(gray, np.array(reprojectedPoints), (11, 11), (-1, -1), criteria)
-    #corners2 = np.array(reprojectedPoints)
     corners2 = np.reshape(corners2, (48, 1, 2))
 
     objPoints.append(objP)
     imgPoints.append(corners2)
-    cv.drawChessboardCorners(image, (CellHeight, CellWidth), corners2, True)
-    cv.imshow('img', image)
-    cv.waitKey(500)
+    cv.drawChessboardCorners(image, (CellWidth, CellHeight), corners2, True)
+    print("Draw")
     global manual_points_entered
     manual_points_entered = True
 
 
-def click_event(event, x, y, flags, params):
+def click_event(event, x, y, flag, params):
     global fourCornerCoordinates
 
     if event == cv.EVENT_LBUTTONDOWN:
@@ -75,26 +74,26 @@ def click_event(event, x, y, flags, params):
             interpolate_grid(fourCornerCoordinates, params)
             fourCornerCoordinates = []
 
-
         img = cv.circle(params, (int(x), int(y)), 5, (255, 0, 0), 2)
         cv.imshow('img', img)
 
 
 def findCorners(sampleImage):
     global manual_points_entered
-    # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-
 
     # termination criteria
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
     manual_points_entered = False
     gray = cv.cvtColor(sampleImage, cv.COLOR_BGR2GRAY)
-    ret, corners = cv.findChessboardCorners(gray, (CellHeight, CellWidth), None)
+    ret, corners = cv.findChessboardCorners(gray, (CellWidth, CellHeight), None)
     if ret:
         objPoints.append(objP)
         accurateCorners = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
         imgPoints.append(accurateCorners)
+        cv.drawChessboardCorners(sampleImage, (CellWidth, CellHeight), accurateCorners, ret)
+        cv.imshow('img', sampleImage)
+        cv.waitKey(0)
 
     if not ret:
         cv.imshow('img', sampleImage)
@@ -102,17 +101,16 @@ def findCorners(sampleImage):
         while not manual_points_entered:
             cv.imshow('img', sampleImage)
             cv.waitKey(500)
+
     return objPoints, imgPoints
 
 
 def findCameraIntrinsic():
-
     for i in range(4):
         randomFrameNumbers = set()
 
-        camFolder = "cam" + str(i+1)
+        camFolder = "cam" + str(i + 1)
         os.chdir(os.path.join("data", camFolder))
-        #os.chdir("data\cam1")
         videoName = "intrinsics.avi"
         video = cv.VideoCapture(videoName)
 
@@ -132,7 +130,8 @@ def findCameraIntrinsic():
                 gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
                 objectPoints, imagePoints = findCorners(image)
                 if len(objectPoints) != 0 and len(imagePoints) != 0:
-                    ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objectPoints, imagePoints, gray.shape[::-1], None,                                              None)
+                    ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objectPoints, imagePoints, gray.shape[::-1], None,
+                                                                      None)
                     print("calibrated")
 
         np.savez('camera_matrix', mtx=mtx, dist=dist)
@@ -142,5 +141,47 @@ def findCameraIntrinsic():
         os.chdir("..")
 
 
+def draw(image, corners, imgPts):
+
+    corner = tuple(corners[0].ravel().astype(int))
+    img = cv.line(image, corner, tuple(imgPts[0].ravel().astype(int)), (255, 0, 0), 5)
+    img = cv.line(image, corner, tuple(imgPts[1].ravel().astype(int)), (0, 255, 0), 5)
+    img = cv.line(image, corner, tuple(imgPts[2].ravel().astype(int)), (0, 0, 255), 5)
+    cv.imshow("img", img)
+    cv.waitKey(0)
+
+
+def findCameraExtrinsic():
+
+    axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).reshape(-1, 3)
+
+    for i in range(4):
+        randomFrameNumbers = set()
+
+        camFolder = "cam" + str(i + 1)
+        os.chdir(os.path.join("data", camFolder))
+        videoName = "checkerboard.avi"
+        video = cv.VideoCapture(videoName)
+        success, image = video.read()
+        if success:
+            gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+            objectPoints, imagePoints = findCorners(image)
+            if len(objectPoints) != 0 and len(imagePoints) != 0:
+                with np.load('camera_matrix.npz') as file:
+                    intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
+                ret, rotation, translation = cv.solvePnP(objectPoints, imagePoints, intrinsicMatrix, dist)
+                print("calibrated")
+
+        np.savez('camera_matrix_extrinsic', rvec=rotation, tvec=translation)
+        print("saved")
+
+        imgPts, jac = cv.projectPoints(axis, rotation, translation, intrinsicMatrix, dist)
+        draw(image, corners2, imgPts)
+
+        os.chdir("..")
+        os.chdir("..")
+
+
 if __name__ == '__main__':
-    findCameraIntrinsic()
+    # findCameraIntrinsic()
+    findCameraExtrinsic()
