@@ -51,8 +51,8 @@ def interpolate_grid(coordinates, image):
     
     global corners2
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-    corners2 = cv.cornerSubPix(gray, np.array(reprojectedPoints), (11, 11), (-1, -1), criteria)
-    corners2 = np.reshape(corners2, (48, 1, 2))
+    #corners2 = cv.cornerSubPix(gray, np.array(reprojectedPoints), (11, 11), (-1, -1), criteria)
+    corners2 = np.reshape(reprojectedPoints, (48, 1, 2))
 
     objPoints.append(objP)
     imgPoints.append(corners2)
