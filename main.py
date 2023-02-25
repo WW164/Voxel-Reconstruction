@@ -49,14 +49,14 @@ def interpolate_grid(coordinates, image):
         reproj_y = y / z
         reprojectedPoints.append((reproj_x, reproj_y))
     
-    global corners2
+    global corners
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-    corners2 = cv.cornerSubPix(gray, np.array(reprojectedPoints), (11, 11), (-1, -1), criteria)
-    corners2 = np.reshape(corners2, (48, 1, 2))
+    corners = cv.cornerSubPix(gray, np.array(reprojectedPoints), (11, 11), (-1, -1), criteria)
+    corners = np.reshape(corners, (48, 1, 2))
 
     objPoints.append(objP)
-    imgPoints.append(corners2)
-    cv.drawChessboardCorners(image, (CellWidth, CellHeight), corners2, True)
+    imgPoints.append(corners)
+    cv.drawChessboardCorners(image, (CellWidth, CellHeight), corners, True)
     print("Draw")
     global manual_points_entered
     manual_points_entered = True
@@ -96,12 +96,21 @@ def findCorners(sampleImage):
         cv.imshow('img', sampleImage)
         cv.waitKey(0)
 
+    '''
     if not ret:
         cv.imshow('img', sampleImage)
         cv.setMouseCallback('img', click_event, param=sampleImage)
         while not manual_points_entered:
             cv.imshow('img', sampleImage)
             cv.waitKey(500)
+    '''
+    if len(objPoints) != 0 and len(imgPoints) != 0:
+        ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objPoints, imgPoints, gray.shape[::-1], None,
+                                                          None)
+        ret, rvecs, tvecs = cv.solvePnP(np.float32(objPoints), accurateCorners, mtx, dist)
+        axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).reshape(-1, 3)
+        imgPts, jac = cv.projectPoints(axis, rvecs, tvecs, mtx, dist)
+        draw(sampleImage, corners, imgPts)
 
     return objPoints, imgPoints
 
@@ -135,8 +144,8 @@ def findCameraIntrinsic():
                                                                       None)
                     print("calibrated")
 
-        np.savez('camera_matrix', mtx=mtx, dist=dist)
-        print("saved")
+        #np.savez('camera_matrix', mtx=mtx, dist=dist)
+        #print("saved")
 
         os.chdir("..")
         os.chdir("..")
@@ -182,7 +191,7 @@ def findCameraExtrinsic():
 
 
 if __name__ == '__main__':
-    # findCameraIntrinsic()
-    findCameraExtrinsic()
+    findCameraIntrinsic()
+    #findCameraExtrinsic()
     backgroundModels = bs.createBackgroundModel()
     bs.backgroundSubtraction(backgroundModels)
