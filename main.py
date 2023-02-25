@@ -54,10 +54,23 @@ def interpolate_grid(coordinates, image):
     corners2 = cv.cornerSubPix(gray, np.array(reprojectedPoints), (11, 11), (-1, -1), criteria)
     corners2 = np.reshape(corners2, (48, 1, 2))
 
-    objPoints.append(objP)
-    imgPoints.append(corners2)
     cv.drawChessboardCorners(image, (CellWidth, CellHeight), corners2, True)
-    print("Draw")
+    cv.imshow('img', image)
+    cv.waitKey(500)
+    input = False
+    while not input:
+        key = cv.waitKey(1)
+        if key == ord('q'):
+            print("Skipped")
+            input = True
+            break
+        elif key == ord('e'):
+            print("added")
+            objPoints.append(objP)
+            imgPoints.append(corners2)
+            input = True
+            break
+
     global manual_points_entered
     manual_points_entered = True
 
@@ -107,39 +120,39 @@ def findCorners(sampleImage):
 
 
 def findCameraIntrinsic():
-    for i in range(4):
-        randomFrameNumbers = set()
+    #for i in range(4):
+    randomFrameNumbers = set()
 
-        camFolder = "cam" + str(i + 1)
-        os.chdir(os.path.join("data", camFolder))
-        videoName = "intrinsics.avi"
-        video = cv.VideoCapture(videoName)
+    camFolder = "cam1"# + str(i + 1)
+    os.chdir(os.path.join("data", camFolder))
+    videoName = "intrinsics.avi"
+    video = cv.VideoCapture(videoName)
 
-        totalFrames = video.get(cv.CAP_PROP_FRAME_COUNT)
-        print("Total frame is: ", totalFrames)
+    totalFrames = video.get(cv.CAP_PROP_FRAME_COUNT)
+    print("Total frame is: ", totalFrames)
 
-        sample = int(totalFrames * 0.01)
+    sample = int(totalFrames * 0.01)
 
-        for j in range(sample):
-            randomFrameNumbers.add(random.randint(0, totalFrames))
-        print("Random frame number size is:", len(randomFrameNumbers))
+    for j in range(sample):
+        randomFrameNumbers.add(random.randint(0, totalFrames))
+    print("Random frame number size is:", len(randomFrameNumbers))
 
-        for randomFrame in randomFrameNumbers:
-            video.set(cv.CAP_PROP_POS_FRAMES, randomFrame)
-            success, image = video.read()
-            if success:
-                gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-                objectPoints, imagePoints = findCorners(image)
-                if len(objectPoints) != 0 and len(imagePoints) != 0:
-                    ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objectPoints, imagePoints, gray.shape[::-1], None,
-                                                                      None)
-                    print("calibrated")
+    for randomFrame in randomFrameNumbers:
+        video.set(cv.CAP_PROP_POS_FRAMES, randomFrame)
+        success, image = video.read()
+        if success:
+            gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+            objectPoints, imagePoints = findCorners(image)
+            if len(objectPoints) != 0 and len(imagePoints) != 0:
+                ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objectPoints, imagePoints, gray.shape[::-1], None,
+                                                                  None)
+                print("calibrated")
 
-        np.savez('camera_matrix', mtx=mtx, dist=dist)
-        print("saved")
+    np.savez('camera_matrix', mtx=mtx, dist=dist)
+    print("saved")
 
-        os.chdir("..")
-        os.chdir("..")
+    os.chdir("..")
+    os.chdir("..")
 
 
 def draw(image, corners, imgPts):
@@ -182,7 +195,7 @@ def findCameraExtrinsic():
 
 
 if __name__ == '__main__':
-    # findCameraIntrinsic()
-    findCameraExtrinsic()
-    backgroundModels = bs.createBackgroundModel()
-    bs.backgroundSubtraction(backgroundModels)
+    findCameraIntrinsic()
+    #findCameraExtrinsic()
+    #backgroundModels = bs.createBackgroundModel()
+    #bs.backgroundSubtraction(backgroundModels)
