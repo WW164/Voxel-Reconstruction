@@ -183,36 +183,3 @@ def dilatation(val):
     dilate_dst = cv.dilate(src, element)
     cv.imshow(title_refine_window, dilate_dst)
     temp = dilate_dst
-
-
-def backgroundSubtractionKNN():
-    backSub = cv.createBackgroundSubtractorKNN()
-    for i in range(4):
-
-        randomFrameNumbers = set()
-        frames = []
-        camFolder = "cam" + str(i + 1)
-        os.chdir(os.path.join("data", camFolder))
-        videoName = "background.avi"
-        video = cv.VideoCapture(videoName)
-        if not video.isOpened():
-            print('Unable to open: ' + videoName)
-            exit(0)
-        while True:
-            ret, frame = video.read()
-            if frame is None:
-                break
-
-            fgMask = backSub.apply(frame)
-
-            cv.rectangle(frame, (10, 2), (100, 20), (255, 255, 255), -1)
-            cv.putText(frame, str(video.get(cv.CAP_PROP_POS_FRAMES)), (15, 15),
-                       cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0))
-
-            cv.imshow('Frame', frame)
-            cv.imshow('FG Mask', fgMask)
-
-            keyboard = cv.waitKey(30)
-            if keyboard == 'q' or keyboard == 27:
-                break
-
