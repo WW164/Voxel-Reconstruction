@@ -12,7 +12,7 @@ manual_points_entered = False
 objPoints = []  # 3d point in real world space
 imgPoints = []  # 2d points in image plane.
 objP = np.zeros((CellWidth * CellHeight, 3), np.float32)
-objP[:, :2] = np.mgrid[0:CellHeight, 0:CellWidth].T.reshape(-1, 2)
+objP[:, :2] = np.mgrid[0:CellWidth, 0:CellHeight].T.reshape(-1, 2)
 
 
 def interpolate_grid(coordinates, image):
@@ -165,11 +165,10 @@ def findCameraExtrinsic():
         success, image = video.read()
         if success:
             objectPoints, imagePoints = findCorners(image)
-            if len(objectPoints) != 0 and len(imagePoints) != 0:
-                with np.load('camera_matrix.npz') as file:
-                    intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
-                ret, rotation, translation = cv.solvePnP(np.float32(objectPoints), corners2, intrinsicMatrix, dist)
-                print("calibrated")
+            with np.load('camera_matrix.npz') as file:
+                intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
+            ret, rotation, translation = cv.solvePnP(np.float32(objectPoints), corners2, intrinsicMatrix, dist)
+            print("calibrated")
 
         np.savez('camera_matrix_extrinsic', rvec=rotation, tvec=translation)
         print("saved")
