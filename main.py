@@ -2,6 +2,7 @@ import cv2 as cv
 import os
 import random
 import numpy as np
+import background_subtraction as bs
 
 CellWidth = 8
 CellHeight = 6
@@ -156,7 +157,6 @@ def findCameraExtrinsic():
     axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).reshape(-1, 3)
 
     for i in range(4):
-        randomFrameNumbers = set()
 
         camFolder = "cam" + str(i + 1)
         os.chdir(os.path.join("data", camFolder))
@@ -164,7 +164,6 @@ def findCameraExtrinsic():
         video = cv.VideoCapture(videoName)
         success, image = video.read()
         if success:
-            gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
             objectPoints, imagePoints = findCorners(image)
             if len(objectPoints) != 0 and len(imagePoints) != 0:
                 with np.load('camera_matrix.npz') as file:
@@ -184,4 +183,6 @@ def findCameraExtrinsic():
 
 if __name__ == '__main__':
     # findCameraIntrinsic()
-    findCameraExtrinsic()
+    #findCameraExtrinsic()
+    backgroundModels = bs.createBackgroundModel()
+    bs.backgroundSubtraction(backgroundModels)
