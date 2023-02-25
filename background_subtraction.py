@@ -4,6 +4,7 @@ import numpy as np
 import random
 import argparse
 
+Results = []
 src = None
 temp = None
 erosion_size = 0
@@ -57,7 +58,8 @@ def backgroundSubtraction(backgroundModels):
 
     # for medianFrame in backgroundModels:
     #     grayMedianFrame.append(cv.cvtColor(medianFrame, cv.COLOR_BGR2GRAY))
-    image = []
+    images = []
+    image = None
     for i in range(4):
 
         camFolder = "cam" + str(i + 1)
@@ -77,13 +79,16 @@ def backgroundSubtraction(backgroundModels):
             dFrame = cv.cvtColor(dFrame, cv.COLOR_BGR2GRAY)
             # # Threshold to binarize
             # th, dFrame = cv.threshold(dFrame, 50, 255, cv.THRESH_BINARY)
-            image = dFrame
+            #image = dFrame
+            images.append(dFrame)
             #cv.imshow("hsv",  dFrame)
             #cv.waitKey(0)
             #print(dFrame)
         os.chdir("..")
         os.chdir("..")
-    RefineOutput(image)
+
+    for image in images:
+        RefineOutput(image)
 
 
 def RefineOutput(image):
@@ -94,7 +99,7 @@ def RefineOutput(image):
         exit(0)
 
     cv.namedWindow(title_refine_window)
-
+    #Apply_Threshold(0)
     cv.createTrackbar(Threshold_trackbar, title_refine_window, 10, 100, Apply_Threshold)
     cv.createTrackbar(Contour_trackbar, title_refine_window, 0, 91, Apply_Contours)
     cv.createTrackbar(erode_trackbar_element_shape, title_refine_window, 0, max_elem, erosion)
@@ -106,18 +111,24 @@ def RefineOutput(image):
     #cv.waitKey()
     while True:
         k = cv.waitKey(0)
-        if k == ord('e'):  # Esc key to stop
+        if k == ord('e'):  # e key to save
             src = temp
             print("saved")
+        elif k == ord('q'):  # q key to commit the image to the list
+            Results.append(src)
+            print("committed")
+            break
         else:  # normally -1 returned,so don't print it
             break
-
+    return
 
 def Apply_Threshold(val):
     global src, temp
     threshold_value = cv.getTrackbarPos(Threshold_trackbar, title_refine_window)
     # Threshold to binarize
     th, dFrame = cv.threshold(src, threshold_value, 255, cv.THRESH_BINARY)
+    #th, dFrame = cv.threshold(src, 30, 255, cv.THRESH_BINARY)
+    #src = dFrame
     temp = dFrame
     cv.imshow(title_refine_window, dFrame)
 
@@ -125,15 +136,21 @@ def Apply_Threshold(val):
 def Apply_Contours(val):
     global src, temp
     contour_value = cv.getTrackbarPos(Contour_trackbar, title_refine_window)
-    contours, hierarchy = cv.findContours(src, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-    print(len(contours))
-    #contour = contours[0] if len(contours) == 2 else contours[1]
-    #big_contour = max(contours, key=cv.contourArea)
+    contours, hierarchy = cv.findContours(src, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
 
     img = src.copy()
-    cv.drawContours(image=img, contours=contours, contourIdx=-1, color=(0, 255, 0), thickness=2, lineType=cv.FILLED)
-    cv.imshow(title_refine_window, img)
-    temp = img
+    sorted_contours = sorted(contours, key=cv.contourArea, reverse=True)
+    largest_item = sorted_contours[0]
+
+    mask = np.ones(img.shape[:2], dtype="uint8") * 255
+    print(len(sorted_contours))
+    for i in range(len(sorted_contours)):
+        if i != 0:
+            cv.drawContours(mask, sorted_contours[i], -1, 0, -1)
+    # remove the contours from the image and show the resulting images
+    image = cv.bitwise_and(img, img, mask=mask)
+    cv.imshow(title_refine_window, image)
+    temp = image
 
 
 def morph_shape(val):
