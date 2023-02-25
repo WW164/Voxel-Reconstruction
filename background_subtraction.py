@@ -3,10 +3,10 @@ import os
 import numpy as np
 import random
 
+
 def createBackgroundModel():
     frames = []
     medianFrames = {}
-    backSub = cv.createBackgroundSubtractorKNN()
 
     for i in range(4):
 
@@ -27,7 +27,8 @@ def createBackgroundModel():
             video.set(cv.CAP_PROP_POS_FRAMES, randomFrame)
             success, image = video.read()
             if success:
-                frames.append(image)
+                hsvImage = cv.cvtColor(image, cv.COLOR_BGR2HSV)
+                frames.append(hsvImage)
 
         medianFrame = np.median(frames, axis=0)
 
@@ -40,10 +41,25 @@ def createBackgroundModel():
 
 
 def backgroundSubtraction(backgroundModels):
-    grayMedianFrame = []
+    backSub = cv.createBackgroundSubtractorKNN()
 
-    for medianFrame in backgroundModels:
-        grayMedianFrame.append(cv.cvtColor(medianFrame, cv.COLOR_BGR2GRAY))
+    # for medianFrame in backgroundModels:
+    #     grayMedianFrame.append(cv.cvtColor(medianFrame, cv.COLOR_BGR2GRAY))
 
+    for i in range(4):
 
+        camFolder = "cam" + str(i + 1)
+        os.chdir(os.path.join("data", camFolder))
+        videoName = "video.avi"
+        video = cv.VideoCapture(videoName)
+        success, image = video.read()
 
+        while success:
+            hsvFrame = cv.cvtColor(image, cv.COLOR_BGR2HSV)
+            cv.imshow("hsv", hsvFrame)
+            cv.waitKey(0)
+            dFrame = cv.absdiff(hsvFrame, backgroundModels[camFolder])
+            print(dFrame)
+
+        os.chdir("..")
+        os.chdir("..")
