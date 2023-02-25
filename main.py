@@ -50,8 +50,6 @@ def interpolate_grid(coordinates, image):
         reprojectedPoints.append((reproj_x, reproj_y))
     
     global corners2
-    gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-    #corners2 = cv.cornerSubPix(gray, np.array(reprojectedPoints), (11, 11), (-1, -1), criteria)
     corners2 = np.reshape(reprojectedPoints, (48, 1, 2))
 
     objPoints.append(objP)
@@ -167,7 +165,7 @@ def findCameraExtrinsic():
             objectPoints, imagePoints = findCorners(image)
             with np.load('camera_matrix.npz') as file:
                 intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
-            ret, rotation, translation = cv.solvePnP(np.float32(objectPoints), corners2, intrinsicMatrix, dist)
+            ret, rotation, translation = cv.solvePnP(objP, corners2, intrinsicMatrix, dist)
             print("calibrated")
 
         np.savez('camera_matrix_extrinsic', rvec=rotation, tvec=translation)
@@ -178,6 +176,8 @@ def findCameraExtrinsic():
 
         os.chdir("..")
         os.chdir("..")
+
+    cv.destroyAllWindows()
 
 
 if __name__ == '__main__':
