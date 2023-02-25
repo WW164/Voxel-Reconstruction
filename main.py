@@ -168,7 +168,7 @@ def findCameraExtrinsic():
             if len(objectPoints) != 0 and len(imagePoints) != 0:
                 with np.load('camera_matrix.npz') as file:
                     intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
-                ret, rotation, translation = cv.solvePnP(objectPoints, imagePoints, intrinsicMatrix, dist)
+                ret, rotation, translation = cv.solvePnP(np.float32(objectPoints), corners2, intrinsicMatrix, dist)
                 print("calibrated")
 
         np.savez('camera_matrix_extrinsic', rvec=rotation, tvec=translation)
@@ -183,6 +183,6 @@ def findCameraExtrinsic():
 
 if __name__ == '__main__':
     # findCameraIntrinsic()
-    #findCameraExtrinsic()
+    findCameraExtrinsic()
     backgroundModels = bs.createBackgroundModel()
     bs.backgroundSubtraction(backgroundModels)
