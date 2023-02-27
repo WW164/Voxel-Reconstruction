@@ -197,8 +197,44 @@ def findCameraExtrinsic():
     cv.destroyAllWindows()
 
 
+def createLookupTable():
+    cameraLookupTable = {}
+
+    for i in range(4):
+
+        camFolder = "cam" + str(i + 1)
+        os.chdir(os.path.join("data", camFolder))
+
+        with np.load('camera_matrix.npz') as file:
+            intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
+
+        with np.load('camera_matrix_extrinsic.npz') as file:
+            rotation, translation = [file[i] for i in ['rvec', 'tvec']]
+
+        pointsLookupTable = {}
+
+        for point in objP:
+            print("point is: ", point)
+            projectedPoint = cv.projectPoints(point, rotation, translation, intrinsicMatrix, dist)
+
+            Xim = projectedPoint[0].ravel()[0]
+            Yim = projectedPoint[0].ravel()[1]
+            Xc = point[0]
+            Yc = point[1]
+            Zc = point[2]
+            pointsLookupTable[(Xc, Yc, Zc)] = (Xim, Yim)
+
+        cameraLookupTable[camFolder] = pointsLookupTable
+
+        os.chdir("..")
+        os.chdir("..")
+
+    return cameraLookupTable
+
+
 if __name__ == '__main__':
     #findCameraIntrinsic()
-    findCameraExtrinsic()
-    backgroundModels = bs.createBackgroundModel()
-    bs.backgroundSubtraction(backgroundModels)
+    #findCameraExtrinsic()
+    lookupTable = createLookupTable()
+    #backgroundModels = bs.createBackgroundModel()
+    #bs.backgroundSubtraction(backgroundModels)
