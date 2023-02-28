@@ -3,16 +3,29 @@ import os
 import random
 import numpy as np
 import background_subtraction as bs
+import json
+import csv
+import functools
+import operator
 
 CellWidth = 8
 CellHeight = 6
+tileSize = 115
+
+frameCellWidth = 20
+frameCellHeight = 20
+frameCellDepth = 20
+
 fourCornerCoordinates = []
 manual_points_entered = False
 # Arrays to store object points and image points from all the images.
 objPoints = []  # 3d point in real world space
 imgPoints = []  # 2d points in image plane.
 objP = np.zeros((CellWidth * CellHeight, 3), np.float32)
-objP[:, :2] = np.mgrid[0:CellWidth, 0:CellHeight].T.reshape(-1, 2)
+objP[:, :2] = np.mgrid[0:CellWidth, 0:CellHeight].T.reshape(-1, 2) * tileSize
+
+framePoint = np.zeros((frameCellWidth * frameCellHeight * frameCellDepth, 3), np.float32)
+framePoint[:, :3] = np.mgrid[0:frameCellWidth, 0:frameCellHeight, 0:frameCellDepth].T.reshape(-1, 3) * tileSize
 
 
 def interpolate_grid(coordinates, image):
@@ -54,7 +67,7 @@ def interpolate_grid(coordinates, image):
 
     objPoints.append(objP)
     imgPoints.append(corners2)
-    cv.drawChessboardCorners(image, (CellWidth, CellHeight), corners2, True)
+    #cv.drawChessboardCorners(image, (CellWidth, CellHeight), corners2, True)
     print("Draw")
     global manual_points_entered
     manual_points_entered = True
@@ -91,9 +104,10 @@ def findCorners(sampleImage):
         objPoints.append(objP)
         corners2 = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
         imgPoints.append(corners2)
-        cv.drawChessboardCorners(sampleImage, (CellWidth, CellHeight), corners2, ret)
-        cv.imshow('img', sampleImage)
-        cv.waitKey(50)
+        #cv.drawChessboardCorners(sampleImage, (CellWidth, CellHeight), corners2, ret)
+        #cv.imshow('img', sampleImage)
+        #cv.waitKey(50)
+
 
     if not ret:
         cv.imshow('img', sampleImage)
@@ -101,6 +115,7 @@ def findCorners(sampleImage):
         while not manual_points_entered:
             cv.imshow('img', sampleImage)
             cv.waitKey(500)
+
 
     return objPoints, imgPoints, ret
 
@@ -112,46 +127,46 @@ def findCameraIntrinsic():
     for i in range(4):
         randomFrameNumbers = set()
 
-        camFolder = "cam" + str(i + 1)
-        os.chdir(os.path.join("data", camFolder))
-        videoName = "intrinsics.avi"
-        video = cv.VideoCapture(videoName)
+    camFolder = "cam4"
+    os.chdir(os.path.join("data", camFolder))
+    videoName = "intrinsics.avi"
+    video = cv.VideoCapture(videoName)
 
-        totalFrames = video.get(cv.CAP_PROP_FRAME_COUNT)
-        print("Total frame is: ", totalFrames)
+    totalFrames = video.get(cv.CAP_PROP_FRAME_COUNT)
+    print("Total frame is: ", totalFrames)
 
-        sample = int(totalFrames * 0.01)
+    sample = int(totalFrames * 0.01)
 
-        for j in range(sample):
-            randomFrameNumbers.add(random.randint(0, totalFrames))
-        print("Random frame number size is:", len(randomFrameNumbers))
+    for j in range(sample):
+        randomFrameNumbers.add(random.randint(0, totalFrames))
+    print("Random frame number size is:", len(randomFrameNumbers))
 
-        for randomFrame in randomFrameNumbers:
-            video.set(cv.CAP_PROP_POS_FRAMES, randomFrame)
-            success, image = video.read()
-            if success:
-                gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-                objectPoints, imagePoints, ret = findCorners(image)
-                if ret:
-                    ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objectPoints, imagePoints, gray.shape[::-1], None,
-                                                                      None)
-                    print("calibrated")
-
-        np.savez('camera_matrix', mtx=mtx, dist=dist)
-        print("saved")
-
-        with np.load('camera_matrix.npz') as file:
-            intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
-
-        axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).reshape(-1, 3)
-        video.set(cv.CAP_PROP_POS_FRAMES, 0)
+    for randomFrame in randomFrameNumbers:
+        video.set(cv.CAP_PROP_POS_FRAMES, randomFrame)
         success, image = video.read()
         if success:
+            gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
             objectPoints, imagePoints, ret = findCorners(image)
             if ret:
-                ret, rotation, translation = cv.solvePnP(objP, corners2, intrinsicMatrix, dist)
-                imgPts, jac = cv.projectPoints(axis, rotation, translation, intrinsicMatrix, dist)
-                draw(image, corners2, imgPts)
+                ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objectPoints, imagePoints, gray.shape[::-1], None,
+                                                                  None)
+                print("calibrated")
+
+    np.savez('camera_matrix', mtx=mtx, dist=dist)
+    print("saved")
+
+    with np.load('camera_matrix.npz') as file:
+        intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
+
+    axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).reshape(-1, 3) * tileSize
+    video.set(cv.CAP_PROP_POS_FRAMES, 0)
+    success, image = video.read()
+    if success:
+        objectPoints, imagePoints, ret = findCorners(image)
+        if ret:
+            ret, rotation, translation = cv.solvePnP(objP, corners2, intrinsicMatrix, dist)
+            imgPts, jac = cv.projectPoints(axis, rotation, translation, intrinsicMatrix, dist)
+            draw(image, corners2, imgPts)
 
         os.chdir("..")
         os.chdir("..")
@@ -169,7 +184,7 @@ def draw(image, corners, imgPts):
 
 def findCameraExtrinsic():
 
-    axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).reshape(-1, 3)
+    axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).reshape(-1, 3) * tileSize
 
     for i in range(4):
 
@@ -190,6 +205,17 @@ def findCameraExtrinsic():
 
         imgPts, jac = cv.projectPoints(axis, rotation, translation, intrinsicMatrix, dist)
         draw(image, corners2, imgPts)
+
+        '''
+
+        voxelCoordinates, jac = cv.projectPoints(framePoint, rotation, translation, intrinsicMatrix, dist)
+
+        for point in voxelCoordinates:
+            img = cv.circle(image, (int(point[0][0] - 200), int(point[0][1]) - 200), 5, (255, 0, 0), 2)
+
+        cv.imshow('img', img)
+        cv.waitKey(0)
+        '''
 
         os.chdir("..")
         os.chdir("..")
@@ -213,28 +239,96 @@ def createLookupTable():
 
         pointsLookupTable = {}
 
-        for point in objP:
+        for point in framePoint:
             print("point is: ", point)
             projectedPoint = cv.projectPoints(point, rotation, translation, intrinsicMatrix, dist)
+            print("projected point is: ", projectedPoint[0].ravel())
 
             Xim = projectedPoint[0].ravel()[0]
             Yim = projectedPoint[0].ravel()[1]
+
             Xc = point[0]
             Yc = point[1]
             Zc = point[2]
-            pointsLookupTable[(Xc, Yc, Zc)] = (Xim, Yim)
+
+            pointsLookupTable[str((Xc, Yc, Zc))] = str((Xim, Yim))
 
         cameraLookupTable[camFolder] = pointsLookupTable
 
         os.chdir("..")
         os.chdir("..")
 
-    return cameraLookupTable
+    print("camera look up table is: ", cameraLookupTable)
+
+    jsonLookupTable = json.dumps(cameraLookupTable)
+
+    # open file for writing, "w"
+    f = open("dict.json", "w")
+
+    # write json object to file
+    f.write(jsonLookupTable)
+
+    # close file
+    f.close()
+
+
+def checkVoxels():
+
+    axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).reshape(-1, 3)
+
+    for i in range(4):
+        camFolder = "cam" + str(i + 1)
+        os.chdir(os.path.join("data", camFolder))
+        videoName = "video.avi"
+        video = cv.VideoCapture(videoName)
+        success, image = video.read()
+        if success:
+            with np.load('camera_matrix.npz') as file:
+                intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
+            with np.load('camera_matrix_extrinsic.npz') as file:
+                rotation, translation = [file[i] for i in ['rvec', 'tvec']]
+
+            voxelCoordinates, jac = cv.projectPoints(framePoint, rotation, translation, intrinsicMatrix, dist)
+            #imgPts, jac = cv.projectPoints(axis, rotation, translation, intrinsicMatrix, dist)
+
+        for point in voxelCoordinates:
+            img = cv.circle(image, (int(point[0][0]), int(point[0][1])), 5, (255, 0, 0), 2)
+
+        cv.imshow('img', img)
+        cv.waitKey(0)
+
+
+        os.chdir("..")
+        os.chdir("..")
+
+    cv.destroyAllWindows()
+
+
+def checkExtrinsic():
+    for i in range(4):
+        camFolder = "cam" + str(i + 1)
+        os.chdir(os.path.join("data", camFolder))
+
+        with np.load('camera_matrix.npz') as file:
+            intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
+        with np.load('camera_matrix_extrinsic.npz') as file:
+            rotation, translation = [file[i] for i in ['rvec', 'tvec']]
+
+        print("Intrinsic for", camFolder, "is: ", "\n", intrinsicMatrix)
+        # print("Dist for", camFolder, "is: ","\n", dist)
+        # print("Rotation for", camFolder, "is: ","\n", rotation)
+        # print("Translation for", camFolder, "is: ","\n", translation)
+
+
+        os.chdir("..")
+        os.chdir("..")
 
 
 if __name__ == '__main__':
     #findCameraIntrinsic()
     #findCameraExtrinsic()
-    lookupTable = createLookupTable()
+    #createLookupTable()
+    checkExtrinsic()
+    #checkVoxels()
     #backgroundModels = bs.createBackgroundModel()
     #bs.backgroundSubtraction(backgroundModels)

@@ -6,7 +6,8 @@ from numpy import load
 
 
 block_size = 1.0
-
+frameCellWidth = 1000
+frameCellHeight = 1000
 
 def getData():
     rvecs = []
@@ -35,16 +36,37 @@ def generate_grid(width, depth):
 
 
 def set_voxel_positions(width, height, depth):
+
+    with np.load('camera_matrix.npz') as file:
+        intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
+    with np.load('camera_matrix_extrinsic.npz') as file:
+        rotation, translation = [file[i] for i in ['rvec', 'tvec']]
+
+    Xl = int(-width/2)
+    Xh = int(width/2)
+    Yl = int(-height/2)
+    Yh = int(height/2)
+    Zl = int(-depth/2)
+    Zh = int(depth/2)
+
+
     # Generates random voxel locations
     # TODO: You need to calculate proper voxel arrays instead of random ones.
     data, colors = [], []
-    for x in range(width):
-        for y in range(height):
-            for z in range(depth):
-                if random.randint(0, 1000) < 5:
-                    data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
-                    colors.append([x / width, z / depth, y / height])
-    return data, colors
+    for x in range(Xl, Xh, 4):
+        for y in range(Yl, Yh, 4):
+            for z in range(Zl, Zh, 4):
+                voxelPoint = np.float32(x, y, z)
+                voxelCoordinates, jac = cv.projectPoints(voxelPoint, rotation, translation, intrinsicMatrix, dist)
+                data.append([x, y, z])
+
+                # if random.randint(0, 1000) < 5:
+                #     data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
+                #     colors.append([x / width, z / depth, y / height])
+
+    #data.append(framePoint)
+
+    return data
 
 
 def get_cam_positions():
