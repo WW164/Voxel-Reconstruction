@@ -284,11 +284,13 @@ def GetForeground(camera):
 
 
 def checkVoxels():
+    cameraLookupTable = {}
+
     #Define the range of the cube
     Xl = 0
     Xh = 7
     Yl = -4
-    Yh = 5
+    Yh = 6
     Zl = 2
     Zh = -13
 
@@ -313,15 +315,28 @@ def checkVoxels():
         for x in range(Xl, Xh):
             for y in range(Yl, Yh):
                 for z in range(Zh, Zl):
+                    output = []
                     # Get the projected point of the voxel position.
                     voxelPoint = np.float32((x, y, z)) * tileSize
                     voxelCoordinate, jac = cv.projectPoints(voxelPoint, rotation, translation, intrinsicMatrix, dist)
                     fx = int(voxelCoordinate[0][0][0])
                     fy = int(voxelCoordinate[0][0][1])
+
+                    Xc = voxelPoint[0]
+                    Yc = voxelPoint[1]
+                    Zc = voxelPoint[2]
+                    output.append((str((fy, fx))))
+                    voxelCoordinates.append(voxelCoordinate)
+
+                    if str((Xc, Yc, Zc)) in cameraLookupTable:
+                        cameraLookupTable[str((Xc, Yc, Zc))].append((str((fy, fx))))
+                    else:
+                        cameraLookupTable[str((Xc, Yc, Zc))] = output
+
+
                     # Check if the value of the image pixel is > 1.
-                    if np.linalg.norm(foregroundImage[fy, fx]) > 1:
-                        voxelCoordinates.append(voxelCoordinate)
-                        # TODO: ADD TO LOOKUP TABLE: voxelPoint, voxelCoordinate, i
+                    #if np.linalg.norm(foregroundImage[fy, fx]) > 1:
+
 
         # Draw the voxels for confirmation.
         for voxel in voxelCoordinates:
@@ -329,6 +344,18 @@ def checkVoxels():
             cv.imshow('img', img)
             cv.waitKey(1)
         result.append(voxelCoordinates)
+
+    jsonLookupTable = json.dumps(cameraLookupTable)
+
+    # open file for writing, "w"
+    f = open("dict.json", "w")
+
+    # write json object to file
+    f.write(jsonLookupTable)
+
+    # close file
+    f.close()
+
 
 def checkExtrinsic():
     for i in range(4):
@@ -351,6 +378,7 @@ def checkExtrinsic():
 
 
 if __name__ == '__main__':
+
     #findCameraIntrinsic()
     #findCameraExtrinsic()
     #createLookupTable()
