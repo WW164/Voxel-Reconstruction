@@ -272,70 +272,63 @@ def createLookupTable():
     f.close()
 
 
-def checkVoxels():
+def GetForeground(camera):
+    camFolder = "cam" + str(camera)
+    path = os.path.join("data", camFolder, 'foreground.png')
+    img = cv.imread(path)
+    dimensions = img.shape
+    for x in range(0, dimensions[0]):
+        for y in range(0, dimensions[1]):
+            if np.linalg.norm(img[x, y]) > 1:
+                print(x, y)
 
+
+def checkVoxels():
+    #Define the range of the cube
     Xl = 0
     Xh = 7
     Yl = -4
     Yh = 5
-    Zl = 0
+    Zl = 2
     Zh = -13
 
-    # voxelSpace = np.float32((0, -4, 0)) * tileSize
-    #
-    #
-    #
-    voxelCoordinates = []
-
-    #
-    #     videoName = "video.avi"
-    #     video = cv.VideoCapture(videoName)
-    #     success, image = video.read()
-    #     if success:
-    #         with np.load('camera_matrix.npz') as file:
-    #             intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
-    #         with np.load('camera_matrix_extrinsic.npz') as file:
-    #             rotation, translation = [file[i] for i in ['rvec', 'tvec']]
-    #
-    #         voxelCoordinate, jac = cv.projectPoints(voxelSpace, rotation, translation, intrinsicMatrix, dist)
-    #         voxelCoordinates.append(voxelCoordinate)
-    #
-    #         for voxel in voxelCoordinates:
-    #             img = cv.circle(image, (int(voxel[0][0][0]), int(voxel[0][0][1])), 5, (255, 0, 0), 2)
-    #             cv.imshow('img', img)
-    #             cv.waitKey(0)
+    #save the output in result
+    result = []
+    #GetForeground(1)
 
     for i in range(4):
+        #Read in the foreground image.
+        voxelCoordinates = []
         camFolder = "cam" + str(i + 1)
-        os.chdir(os.path.join("data", camFolder))
+        path = os.path.join("data", camFolder)
+        foregroundImagePath = os.path.join("data", camFolder, 'foreground.png')
+        foregroundImage = cv.imread(foregroundImagePath)
+
+        #read in the camera matrix
+        with np.load(os.path.join(path, 'camera_matrix.npz')) as file:
+            intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
+        with np.load(os.path.join(path, 'camera_matrix_extrinsic.npz')) as file:
+            rotation, translation = [file[i] for i in ['rvec', 'tvec']]
 
         for x in range(Xl, Xh):
             for y in range(Yl, Yh):
                 for z in range(Zh, Zl):
+                    # Get the projected point of the voxel position.
                     voxelPoint = np.float32((x, y, z)) * tileSize
-                    videoName = "video.avi"
-                    video = cv.VideoCapture(videoName)
-                    success, image = video.read()
-                    if success:
-                        with np.load('camera_matrix.npz') as file:
-                            intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
-                        with np.load('camera_matrix_extrinsic.npz') as file:
-                            rotation, translation = [file[i] for i in ['rvec', 'tvec']]
-
                     voxelCoordinate, jac = cv.projectPoints(voxelPoint, rotation, translation, intrinsicMatrix, dist)
-                    voxelCoordinates.append(voxelCoordinate)
+                    fx = int(voxelCoordinate[0][0][0])
+                    fy = int(voxelCoordinate[0][0][1])
+                    # Check if the value of the image pixel is > 1.
+                    if np.linalg.norm(foregroundImage[fy, fx]) > 1:
+                        voxelCoordinates.append(voxelCoordinate)
+                        # TODO: ADD TO LOOKUP TABLE: voxelPoint, voxelCoordinate, i
 
-            print("Done")
+        # Draw the voxels for confirmation.
         for voxel in voxelCoordinates:
-            img = cv.circle(image, (int(voxel[0][0][0]), int(voxel[0][0][1])), 5, (255, 0, 0), 2)
+            img = cv.circle(foregroundImage, (int(voxel[0][0][0]), int(voxel[0][0][1])), 5, (255, 0, 0), 2)
             cv.imshow('img', img)
-            cv.waitKey(0)
-
-        os.chdir("..")
-        os.chdir("..")
-
-        cv.destroyAllWindows()
-
+            cv.waitKey(1)
+        result.append(voxelCoordinates)
 
 def checkExtrinsic():
     for i in range(4):
