@@ -274,34 +274,67 @@ def createLookupTable():
 
 def checkVoxels():
 
-    axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).reshape(-1, 3)
+    Xl = 0
+    Xh = 7
+    Yl = -4
+    Yh = 5
+    Zl = 0
+    Zh = -13
+
+    # voxelSpace = np.float32((0, -4, 0)) * tileSize
+    #
+    #
+    #
+    voxelCoordinates = []
+
+    #
+    #     videoName = "video.avi"
+    #     video = cv.VideoCapture(videoName)
+    #     success, image = video.read()
+    #     if success:
+    #         with np.load('camera_matrix.npz') as file:
+    #             intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
+    #         with np.load('camera_matrix_extrinsic.npz') as file:
+    #             rotation, translation = [file[i] for i in ['rvec', 'tvec']]
+    #
+    #         voxelCoordinate, jac = cv.projectPoints(voxelSpace, rotation, translation, intrinsicMatrix, dist)
+    #         voxelCoordinates.append(voxelCoordinate)
+    #
+    #         for voxel in voxelCoordinates:
+    #             img = cv.circle(image, (int(voxel[0][0][0]), int(voxel[0][0][1])), 5, (255, 0, 0), 2)
+    #             cv.imshow('img', img)
+    #             cv.waitKey(0)
 
     for i in range(4):
         camFolder = "cam" + str(i + 1)
         os.chdir(os.path.join("data", camFolder))
-        videoName = "video.avi"
-        video = cv.VideoCapture(videoName)
-        success, image = video.read()
-        if success:
-            with np.load('camera_matrix.npz') as file:
-                intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
-            with np.load('camera_matrix_extrinsic.npz') as file:
-                rotation, translation = [file[i] for i in ['rvec', 'tvec']]
 
-            voxelCoordinates, jac = cv.projectPoints(framePoint, rotation, translation, intrinsicMatrix, dist)
-            #imgPts, jac = cv.projectPoints(axis, rotation, translation, intrinsicMatrix, dist)
+        for x in range(Xl, Xh):
+            for y in range(Yl, Yh):
+                for z in range(Zh, Zl):
+                    voxelPoint = np.float32((x, y, z)) * tileSize
+                    videoName = "video.avi"
+                    video = cv.VideoCapture(videoName)
+                    success, image = video.read()
+                    if success:
+                        with np.load('camera_matrix.npz') as file:
+                            intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
+                        with np.load('camera_matrix_extrinsic.npz') as file:
+                            rotation, translation = [file[i] for i in ['rvec', 'tvec']]
 
-        for point in voxelCoordinates:
-            img = cv.circle(image, (int(point[0][0]), int(point[0][1])), 5, (255, 0, 0), 2)
+                    voxelCoordinate, jac = cv.projectPoints(voxelPoint, rotation, translation, intrinsicMatrix, dist)
+                    voxelCoordinates.append(voxelCoordinate)
 
-        cv.imshow('img', img)
-        cv.waitKey(0)
-
+            print("Done")
+        for voxel in voxelCoordinates:
+            img = cv.circle(image, (int(voxel[0][0][0]), int(voxel[0][0][1])), 5, (255, 0, 0), 2)
+            cv.imshow('img', img)
+            cv.waitKey(0)
 
         os.chdir("..")
         os.chdir("..")
 
-    cv.destroyAllWindows()
+        cv.destroyAllWindows()
 
 
 def checkExtrinsic():
@@ -328,7 +361,7 @@ if __name__ == '__main__':
     #findCameraIntrinsic()
     #findCameraExtrinsic()
     #createLookupTable()
-    checkExtrinsic()
-    #checkVoxels()
+    #checkExtrinsic()
+    checkVoxels()
     #backgroundModels = bs.createBackgroundModel()
     #bs.backgroundSubtraction(backgroundModels)

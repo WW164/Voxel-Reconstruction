@@ -8,10 +8,13 @@ from numpy import load
 block_size = 1.0
 frameCellWidth = 1000
 frameCellHeight = 1000
+tileSize = 115
 
 def getData():
     rvecs = []
     tvecs = []
+    intrinsicMatrix = []
+    dist = []
     for i in range(4):
         camFolder = "cam" + str(i + 1)
         data = load('data/' + camFolder + '/camera_matrix_extrinsic.npz')
@@ -21,7 +24,16 @@ def getData():
                 rvecs.append(data[item])
             if item == 'tvec':
                 tvecs.append(data[item])
-    return rvecs, tvecs
+
+        data = load('data/' + camFolder + '/camera_matrix.npz')
+        lst = data.files
+        for item in lst:
+            if item == 'mtx':
+                intrinsicMatrix.append(data[item])
+            if item == 'dist':
+                dist.append(data[item])
+
+    return rvecs, tvecs, intrinsicMatrix, dist
 
 
 def generate_grid(width, depth):
@@ -37,41 +49,48 @@ def generate_grid(width, depth):
 
 def set_voxel_positions(width, height, depth):
 
-    with np.load('camera_matrix.npz') as file:
-        intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
-    with np.load('camera_matrix_extrinsic.npz') as file:
-        rotation, translation = [file[i] for i in ['rvec', 'tvec']]
+    rotation, translation, intrinsicMatrix, dist = getData()
 
-    Xl = int(-width/2)
-    Xh = int(width/2)
-    Yl = int(-height/2)
-    Yh = int(height/2)
-    Zl = int(-depth/2)
-    Zh = int(depth/2)
-
+    Xl = 0
+    Xh = 7
+    Yl = -4
+    Yh = 5
+    Zl = 2
+    Zh = -13
 
     # Generates random voxel locations
     # TODO: You need to calculate proper voxel arrays instead of random ones.
     data, colors = [], []
-    for x in range(Xl, Xh, 4):
-        for y in range(Yl, Yh, 4):
-            for z in range(Zl, Zh, 4):
-                voxelPoint = np.float32(x, y, z)
-                voxelCoordinates, jac = cv.projectPoints(voxelPoint, rotation, translation, intrinsicMatrix, dist)
-                data.append([x, y, z])
+    for i in range(4):
+        for x in range(Xl, Xh):
+            for y in range(Yl, Yh):
+                for z in range(Zh, Zl):
+                    voxelPoint = np.float32((x, y, z)) * tileSize
+                    voxelCoordinates, jac = cv.projectPoints(voxelPoint, rotation[i], translation[i], intrinsicMatrix[i], dist[i])
+                    #if func(voxelCoordinates):
+                    data.append(voxelCoordinates)
+                    colors.append([x / width, z / depth, y / height])
+        print("Done")
 
-                # if random.randint(0, 1000) < 5:
-                #     data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
-                #     colors.append([x / width, z / depth, y / height])
+    #
+    #             # if random.randint(0, 1000) < 5:
+    #             #     data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
+    #             #     colors.append([x / width, z / depth, y / height])
+    # for x in range(Xl, Xh, 4):
+    #     for y in range(Yl, Yh, 4):
+    #         for z in range(Zl, Zh, 4):
+    #             if random.randint(0, 1000) < 5:
+    #                 data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
+    #                 colors.append([x / width, z / depth, y / height])
 
     #data.append(framePoint)
 
-    return data
+    return data, colors
 
 
 def get_cam_positions():
     
-    rvecs, tvecs = getData()
+    rvecs, tvecs, intrinsicMatrix, dist = getData()
     Positions = []
     for i in range(4):
         rotM = cv.Rodrigues(rvecs[i])[0]
@@ -85,7 +104,7 @@ def get_cam_positions():
 
 def get_cam_rotation_matrices():
 
-    rvecs, tvecs = getData()
+    rvecs, tvecs, intrinsicMatrix, dist = getData()
     RotMs = []
     for i in range(4):
         rvec = np.array((rvecs[i][0], -rvecs[i][2], -rvecs[i][1]))
