@@ -2,6 +2,7 @@ import glm
 import random
 import numpy as np
 import cv2 as cv
+import os
 from numpy import load
 
 
@@ -23,7 +24,7 @@ def getData():
             if item == 'rvec':
                 rvecs.append(data[item])
             if item == 'tvec':
-                tvecs.append(data[item])
+                tvecs.append(np.divide(data[item], tileSize))
 
         data = load('data/' + camFolder + '/camera_matrix.npz')
         lst = data.files
@@ -47,6 +48,14 @@ def generate_grid(width, depth):
     return data, colors
 
 
+def GetForeground(camera, x, y):
+    camFolder = "cam" + str(camera)
+    path = os.path.join("data", camFolder, 'foreground.png')
+    img = cv.imread(path)
+
+    return img[x, y] > 1
+
+
 def set_voxel_positions(width, height, depth):
 
     rotation, translation, intrinsicMatrix, dist = getData()
@@ -67,9 +76,9 @@ def set_voxel_positions(width, height, depth):
                 for z in range(Zh, Zl):
                     voxelPoint = np.float32((x, y, z)) * tileSize
                     voxelCoordinates, jac = cv.projectPoints(voxelPoint, rotation[i], translation[i], intrinsicMatrix[i], dist[i])
-                    #if func(voxelCoordinates):
-                    data.append(voxelCoordinates)
-                    colors.append([x / width, z / depth, y / height])
+                    if GetForeground(i+1, voxelCoordinates[0][0][0], voxelCoordinates[0][0][1]):
+                        data.append(voxelCoordinates)
+                        colors.append([x / width, z / depth, y / height])
         print("Done")
 
     #
