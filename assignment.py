@@ -6,7 +6,7 @@ import os
 from numpy import load
 import json
 import background_subtraction as bs
-
+import pickle
 
 block_size = 1
 frameCellWidth = 1000
@@ -16,21 +16,9 @@ frameIndex = 1
 voxels = []
 
 
-def loadJson():
-    # Opening JSON file
-    f = open('dict.json')
-
-    # returns JSON object as
-    # a dictionary
-    lookupTable = json.load(f)
-
-    # Iterating through the json
-    # list
-    #for voxel in lookupTable:
-        #print(voxel, ":", lookupTable[voxel])
-
-    # Closing file
-    f.close()
+def loadPickle():
+    with open('lookuptable.pickle', 'rb') as handle:
+        lookupTable = pickle.load(handle)
 
     return lookupTable
 
@@ -138,7 +126,7 @@ def set_voxel_positions(width, height, depth):
                 Zc = voxelPoint[2]
                 boolValues = []
                 for j in range(4):
-                    if GetForegroundValue(foregroundImages, j, voxels[str((Xc, Yc, Zc))][j]):
+                    if GetForegroundValue(foregroundImages, j, voxels[(Xc, Yc, Zc)][j]):
                         boolValues.append(True)
                     else:
                         boolValues.append(False)
@@ -161,7 +149,7 @@ def set_voxel_positions(width, height, depth):
 def get_cam_positions():
     rvecs, tvecs, intrinsicMatrix, dist = getData()
     global voxels
-    voxels = loadJson()
+    voxels = loadPickle()
     bs.createBackgroundModel()
     Positions = []
     for i in range(4):

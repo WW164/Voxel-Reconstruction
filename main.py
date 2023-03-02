@@ -4,6 +4,7 @@ import random
 import numpy as np
 import background_subtraction as bs
 import json
+import pickle
 import csv
 import functools
 import operator
@@ -61,13 +62,13 @@ def interpolate_grid(coordinates, image):
         reproj_x = x / z
         reproj_y = y / z
         reprojectedPoints.append((reproj_x, reproj_y))
-    
+
     global corners2
     corners2 = np.reshape(reprojectedPoints, (48, 1, 2))
 
     objPoints.append(objP)
     imgPoints.append(corners2)
-    #cv.drawChessboardCorners(image, (CellWidth, CellHeight), corners2, True)
+    # cv.drawChessboardCorners(image, (CellWidth, CellHeight), corners2, True)
     print("Draw")
     global manual_points_entered
     manual_points_entered = True
@@ -104,10 +105,9 @@ def findCorners(sampleImage):
         objPoints.append(objP)
         corners2 = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
         imgPoints.append(corners2)
-        #cv.drawChessboardCorners(sampleImage, (CellWidth, CellHeight), corners2, ret)
-        #cv.imshow('img', sampleImage)
-        #cv.waitKey(50)
-
+        # cv.drawChessboardCorners(sampleImage, (CellWidth, CellHeight), corners2, ret)
+        # cv.imshow('img', sampleImage)
+        # cv.waitKey(50)
 
     if not ret:
         cv.imshow('img', sampleImage)
@@ -116,12 +116,10 @@ def findCorners(sampleImage):
             cv.imshow('img', sampleImage)
             cv.waitKey(500)
 
-
     return objPoints, imgPoints, ret
 
 
 def findCameraIntrinsic():
-
     global corners2
 
     for i in range(4):
@@ -173,7 +171,6 @@ def findCameraIntrinsic():
 
 
 def draw(image, corners, imgPts):
-
     corner = tuple(corners[0].ravel().astype(int))
     img = cv.line(image, corner, tuple(imgPts[0].ravel().astype(int)), (255, 0, 0), 5)
     img = cv.line(image, corner, tuple(imgPts[1].ravel().astype(int)), (0, 255, 0), 5)
@@ -183,7 +180,6 @@ def draw(image, corners, imgPts):
 
 
 def findCameraExtrinsic():
-
     axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).reshape(-1, 3) * tileSize
 
     for i in range(4):
@@ -286,7 +282,7 @@ def GetForeground(camera):
 def checkVoxels():
     cameraLookupTable = {}
 
-    #Define the range of the cube
+    # Define the range of the cube
     Xl = 0
     Xh = 7
     Yl = -4
@@ -294,19 +290,19 @@ def checkVoxels():
     Zl = 2
     Zh = -13
 
-    #save the output in result
+    # save the output in result
     result = []
-    #GetForeground(1)
+    # GetForeground(1)
 
     for i in range(4):
-        #Read in the foreground image.
+        # Read in the foreground image.
         voxelCoordinates = []
         camFolder = "cam" + str(i + 1)
         path = os.path.join("data", camFolder)
         foregroundImagePath = os.path.join("data", camFolder, 'foreground.png')
         foregroundImage = cv.imread(foregroundImagePath)
 
-        #read in the camera matrix
+        # read in the camera matrix
         with np.load(os.path.join(path, 'camera_matrix.npz')) as file:
             intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
         with np.load(os.path.join(path, 'camera_matrix_extrinsic.npz')) as file:
@@ -326,36 +322,23 @@ def checkVoxels():
                     Yc = voxelPoint[1]
                     Zc = voxelPoint[2]
 
-                    output.append((str((fy, fx))))
+                    output.append((fy, fx))
                     voxelCoordinates.append(voxelCoordinate)
 
-                    if str((Xc, Yc, Zc)) in cameraLookupTable:
-                        cameraLookupTable[str((Xc, Yc, Zc))].append((str((fy, fx))))
+                    if (Xc, Yc, Zc) in cameraLookupTable:
+                        cameraLookupTable[(Xc, Yc, Zc)].append((fy, fx))
                     else:
-                        cameraLookupTable[str((Xc, Yc, Zc))] = output
-
-
-                    # Check if the value of the image pixel is > 1.
-                    #if np.linalg.norm(foregroundImage[fy, fx]) > 1:
-
+                        cameraLookupTable[(Xc, Yc, Zc)] = output
 
         # Draw the voxels for confirmation.
-        for voxel in voxelCoordinates:
-            img = cv.circle(foregroundImage, (int(voxel[0][0][0]), int(voxel[0][0][1])), 5, (255, 0, 0), 2)
-            cv.imshow('img', img)
-            cv.waitKey(1)
-        result.append(voxelCoordinates)
+        # for voxel in voxelCoordinates:
+        #     img = cv.circle(foregroundImage, (int(voxel[0][0][0]), int(voxel[0][0][1])), 5, (255, 0, 0), 2)
+        #     cv.imshow('img', img)
+        #     cv.waitKey(1)
+        # result.append(voxelCoordinates)
 
-    jsonLookupTable = json.dumps(cameraLookupTable)
-
-    # open file for writing, "w"
-    f = open("dict.json", "w")
-
-    # write json object to file
-    f.write(jsonLookupTable)
-
-    # close file
-    f.close()
+    with open('lookuptable.pickle', 'wb') as handle:
+        pickle.dump(cameraLookupTable, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def checkExtrinsic():
@@ -373,13 +356,11 @@ def checkExtrinsic():
         # print("Rotation for", camFolder, "is: ","\n", rotation)
         # print("Translation for", camFolder, "is: ","\n", translation)
 
-
         os.chdir("..")
         os.chdir("..")
 
 
 def GenerateForeground():
-
     foregroundImages = []
     for i in range(4):
         camFolder = "cam" + str(i + 1)
@@ -391,9 +372,10 @@ def GenerateForeground():
         result = bs.backgroundSubtraction(frame, i)
         cv.imshow("result", result)
         cv.waitKey(0)
-        #cv.DestroyAllWindows()
+        # cv.DestroyAllWindows()
         foregroundImages.append(result)
     return foregroundImages
+
 
 def xorLookupTable():
     cameraLookupTable = {}
@@ -411,8 +393,9 @@ def xorLookupTable():
     # GetForeground(1)
 
     for i in range(4):
-        voxelCoordinates = []
 
+        voxelCoordinates = []
+        
         # Read in the foreground image.
         camFolder = "cam" + str(i + 1)
         path = os.path.join("data", camFolder)
@@ -439,49 +422,37 @@ def xorLookupTable():
                     Yc = voxelPoint[1]
                     Zc = voxelPoint[2]
 
-                    output.append((str((Xc, Yc, Zc, i))))
+                    output.append((Xc, Yc, Zc, i))
                     voxelCoordinates.append(voxelCoordinate)
 
-                    if str((fy, fx)) in cameraLookupTable:
-                        cameraLookupTable[str((fy, fx))].append((str((Xc, Yc, Zc, i))))
+                    if (fy, fx) in cameraLookupTable:
+                        cameraLookupTable[(fy, fx)].append((Xc, Yc, Zc, i))
                     else:
-                        cameraLookupTable[str((fy, fx))] = output
+                        cameraLookupTable[(fy, fx)] = output
 
+        # # Draw the voxels for confirmation.
+        # for voxel in voxelCoordinates:
+        #     img = cv.circle(foregroundImage, (int(voxel[0][0][0]), int(voxel[0][0][1])), 5, (255, 0, 0), 2)
+        #     cv.imshow('img', img)
+        #     cv.waitKey(1)
+        # result.append(voxelCoordinates)
 
-        # Draw the voxels for confirmation.
-        for voxel in voxelCoordinates:
-            img = cv.circle(foregroundImage, (int(voxel[0][0][0]), int(voxel[0][0][1])), 5, (255, 0, 0), 2)
-            cv.imshow('img', img)
-            cv.waitKey(1)
-        result.append(voxelCoordinates)
+    with open('xor.pickle', 'wb') as handle:
+        pickle.dump(cameraLookupTable, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    print(len(cameraLookupTable))
+    with open('xor.pickle', 'rb') as handle:
+        lookupTable = pickle.load(handle)
 
-
-    for point in cameraLookupTable:
-        if len(cameraLookupTable[point]) > 2:
-            print(point)
-
-    jsonLookupTable = json.dumps(cameraLookupTable)
-
-    # open file for writing, "w"
-    f = open("xor2.json", "w")
-
-    # write json object to file
-    f.write(jsonLookupTable)
-
-    # close file
-    f.close()
+    print(lookupTable)
 
 
 if __name__ == '__main__':
-
-    #findCameraIntrinsic()
-    #findCameraExtrinsic()
-    #createLookupTable()
-    #checkExtrinsic()
-    #checkVoxels()
-    xorLookupTable()
+    # findCameraIntrinsic()
+    # findCameraExtrinsic()
+    # createLookupTable()
+    checkExtrinsic()
+    # checkVoxels()
+    # xorLookupTable()
     # backgroundModels = bs.createBackgroundModel()
     # GenerateForeground()
-    #bs.backgroundSubtraction(backgroundModels)
+    # bs.backgroundSubtraction(backgroundModels)
