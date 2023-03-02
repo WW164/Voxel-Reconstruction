@@ -127,7 +127,7 @@ def get_cam_positions():
     for i in range(4):
         rotM = cv.Rodrigues(rvecs[i])[0]
         camPos = -rotM.T.dot(tvecs[i])
-        camPosFix = [camPos[0], -camPos[2], -camPos[1]]
+        camPosFix = [camPos[0], -camPos[2], camPos[1]]
         Positions.append(camPosFix)
 
     return [Positions[0], Positions[1], Positions[2], Positions[3]], \
@@ -138,14 +138,15 @@ def get_cam_rotation_matrices():
     rvecs, tvecs, intrinsicMatrix, dist = getData()
     RotMs = []
     for i in range(4):
-        rvec = np.array((rvecs[i][0], -rvecs[i][2], -rvecs[i][1]))
+        rvec = np.array((rvecs[i][0], rvecs[i][1], rvecs[i][2]))
         rotM = cv.Rodrigues(rvec)[0]
         rotM1 = np.identity(4)
         rotM1[:3, :3] = rotM
         RotMs.append(rotM1)
 
-    cam_angles = [[0, 0, -90], [0, 0, -90], [0, 0, -90], [0, 0, -90]]
+    cam_angles = [[0, 0, 90], [0, 0, 90], [0, 0, 90], [0, 0, 90]]
     cam_rotations = [glm.mat4(RotMs[0]), glm.mat4(RotMs[1]), glm.mat4(RotMs[2]), glm.mat4(RotMs[3])]
+
     for c in range(len(cam_rotations)):
         cam_rotations[c] = glm.rotate(cam_rotations[c], cam_angles[c][0] * np.pi / 180, [1, 0, 0])
         cam_rotations[c] = glm.rotate(cam_rotations[c], cam_angles[c][1] * np.pi / 180, [0, 1, 0])
