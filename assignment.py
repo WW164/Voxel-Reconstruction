@@ -113,7 +113,6 @@ def set_voxel_positions(width, height, depth):
     #     for y in range(Yl, Yh, 4):
     #         for z in range(Zl, Zh, 4):
     #             if random.randint(0, 1000) < 5:
-    #                 data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
     #                 colors.append([x / width, z / depth, y / height])
 
     # data.append(framePoint)

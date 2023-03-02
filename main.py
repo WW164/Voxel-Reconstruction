@@ -325,6 +325,7 @@ def checkVoxels():
                     Xc = voxelPoint[0]
                     Yc = voxelPoint[1]
                     Zc = voxelPoint[2]
+
                     output.append((str((fy, fx))))
                     voxelCoordinates.append(voxelCoordinate)
 
@@ -382,7 +383,7 @@ if __name__ == '__main__':
     #findCameraIntrinsic()
     #findCameraExtrinsic()
     #createLookupTable()
-    #checkExtrinsic()
-    checkVoxels()
+    checkExtrinsic()
+    #checkVoxels()
     #backgroundModels = bs.createBackgroundModel()
     #bs.backgroundSubtraction(backgroundModels)
