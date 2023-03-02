@@ -395,6 +395,84 @@ def GenerateForeground():
         foregroundImages.append(result)
     return foregroundImages
 
+def xorLookupTable():
+    cameraLookupTable = {}
+
+    # Define the range of the cube
+    Xl = 0
+    Xh = 7
+    Yl = -4
+    Yh = 6
+    Zl = 2
+    Zh = -13
+
+    # save the output in result
+    result = []
+    # GetForeground(1)
+
+    for i in range(4):
+        voxelCoordinates = []
+
+        # Read in the foreground image.
+        camFolder = "cam" + str(i + 1)
+        path = os.path.join("data", camFolder)
+        foregroundImagePath = os.path.join("data", camFolder, 'foreground.png')
+        foregroundImage = cv.imread(foregroundImagePath)
+
+        # read in the camera matrix
+        with np.load(os.path.join(path, 'camera_matrix.npz')) as file:
+            intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
+        with np.load(os.path.join(path, 'camera_matrix_extrinsic.npz')) as file:
+            rotation, translation = [file[i] for i in ['rvec', 'tvec']]
+
+        for x in range(Xl, Xh):
+            for y in range(Yl, Yh):
+                for z in range(Zh, Zl):
+                    output = []
+                    # Get the projected point of the voxel position.
+                    voxelPoint = np.float32((x, y, z)) * tileSize
+                    voxelCoordinate, jac = cv.projectPoints(voxelPoint, rotation, translation, intrinsicMatrix, dist)
+                    fx = int(voxelCoordinate[0][0][0])
+                    fy = int(voxelCoordinate[0][0][1])
+
+                    Xc = voxelPoint[0]
+                    Yc = voxelPoint[1]
+                    Zc = voxelPoint[2]
+
+                    output.append((str((Xc, Yc, Zc, i))))
+                    voxelCoordinates.append(voxelCoordinate)
+
+                    if str((fy, fx)) in cameraLookupTable:
+                        cameraLookupTable[str((fy, fx))].append((str((Xc, Yc, Zc, i))))
+                    else:
+                        cameraLookupTable[str((fy, fx))] = output
+
+
+        # Draw the voxels for confirmation.
+        for voxel in voxelCoordinates:
+            img = cv.circle(foregroundImage, (int(voxel[0][0][0]), int(voxel[0][0][1])), 5, (255, 0, 0), 2)
+            cv.imshow('img', img)
+            cv.waitKey(1)
+        result.append(voxelCoordinates)
+
+    print(len(cameraLookupTable))
+
+
+    for point in cameraLookupTable:
+        if len(cameraLookupTable[point]) > 2:
+            print(point)
+
+    jsonLookupTable = json.dumps(cameraLookupTable)
+
+    # open file for writing, "w"
+    f = open("xor2.json", "w")
+
+    # write json object to file
+    f.write(jsonLookupTable)
+
+    # close file
+    f.close()
+
 
 if __name__ == '__main__':
 
@@ -403,6 +481,7 @@ if __name__ == '__main__':
     #createLookupTable()
     #checkExtrinsic()
     #checkVoxels()
-    backgroundModels = bs.createBackgroundModel()
-    GenerateForeground()
+    xorLookupTable()
+    # backgroundModels = bs.createBackgroundModel()
+    # GenerateForeground()
     #bs.backgroundSubtraction(backgroundModels)
