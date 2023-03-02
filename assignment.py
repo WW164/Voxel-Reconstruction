@@ -4,12 +4,32 @@ import numpy as np
 import cv2 as cv
 import os
 from numpy import load
-
+import json
 
 block_size = 1.0
 frameCellWidth = 1000
 frameCellHeight = 1000
 tileSize = 115
+
+
+def loadJson():
+    # Opening JSON file
+    f = open('dict.json')
+
+    # returns JSON object as
+    # a dictionary
+    lookupTable = json.load(f)
+
+    # Iterating through the json
+    # list
+    for voxel in lookupTable:
+        print(voxel, ":", lookupTable[voxel])
+
+    # Closing file
+    f.close()
+
+    return lookupTable
+
 
 def getData():
     rvecs = []
@@ -43,8 +63,8 @@ def generate_grid(width, depth):
     data, colors = [], []
     for x in range(width):
         for z in range(depth):
-            data.append([x*block_size - width/2, -block_size, z*block_size - depth/2])
-            colors.append([1.0, 1.0, 1.0] if (x+z) % 2 == 0 else [0, 0, 0])
+            data.append([x * block_size - width / 2, -block_size, z * block_size - depth / 2])
+            colors.append([1.0, 1.0, 1.0] if (x + z) % 2 == 0 else [0, 0, 0])
     return data, colors
 
 
@@ -57,6 +77,9 @@ def GetForeground(camera, x, y):
 
 
 def set_voxel_positions(width, height, depth):
+    # loading lookup table from json file
+    # TODO: Voxels is a dictionary that each voxel (3d point) is the key and projected 2d points are value
+    voxels = loadJson()
 
     rotation, translation, intrinsicMatrix, dist = getData()
 
@@ -75,8 +98,9 @@ def set_voxel_positions(width, height, depth):
             for y in range(Yl, Yh):
                 for z in range(Zh, Zl):
                     voxelPoint = np.float32((x, y, z)) * tileSize
-                    voxelCoordinates, jac = cv.projectPoints(voxelPoint, rotation[i], translation[i], intrinsicMatrix[i], dist[i])
-                    if GetForeground(i+1, voxelCoordinates[0][0][0], voxelCoordinates[0][0][1]):
+                    voxelCoordinates, jac = cv.projectPoints(voxelPoint, rotation[i], translation[i],
+                                                             intrinsicMatrix[i], dist[i])
+                    if GetForeground(i + 1, voxelCoordinates[0][0][0], voxelCoordinates[0][0][1]):
                         data.append(voxelCoordinates)
                         colors.append([x / width, z / depth, y / height])
         print("Done")
@@ -92,13 +116,12 @@ def set_voxel_positions(width, height, depth):
     #                 data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
     #                 colors.append([x / width, z / depth, y / height])
 
-    #data.append(framePoint)
+    # data.append(framePoint)
 
     return data, colors
 
 
 def get_cam_positions():
-    
     rvecs, tvecs, intrinsicMatrix, dist = getData()
     Positions = []
     for i in range(4):
@@ -108,11 +131,10 @@ def get_cam_positions():
         Positions.append(camPosFix)
 
     return [Positions[0], Positions[1], Positions[2], Positions[3]], \
-        [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
+           [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
 
 
 def get_cam_rotation_matrices():
-
     rvecs, tvecs, intrinsicMatrix, dist = getData()
     RotMs = []
     for i in range(4):
@@ -129,4 +151,3 @@ def get_cam_rotation_matrices():
         cam_rotations[c] = glm.rotate(cam_rotations[c], cam_angles[c][1] * np.pi / 180, [0, 1, 0])
         cam_rotations[c] = glm.rotate(cam_rotations[c], cam_angles[c][2] * np.pi / 180, [0, 0, 1])
     return cam_rotations
-
