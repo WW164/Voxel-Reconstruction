@@ -5,11 +5,15 @@ import cv2 as cv
 import os
 from numpy import load
 import json
+import background_subtraction as bs
 
-block_size = 1.0
+
+block_size = 1
 frameCellWidth = 1000
 frameCellHeight = 1000
 tileSize = 115
+frameIndex = 1
+voxels = []
 
 
 def loadJson():
@@ -22,8 +26,8 @@ def loadJson():
 
     # Iterating through the json
     # list
-    for voxel in lookupTable:
-        print(voxel, ":", lookupTable[voxel])
+    #for voxel in lookupTable:
+        #print(voxel, ":", lookupTable[voxel])
 
     # Closing file
     f.close()
@@ -68,20 +72,53 @@ def generate_grid(width, depth):
     return data, colors
 
 
-def GetForeground(camera, x, y):
-    camFolder = "cam" + str(camera)
-    path = os.path.join("data", camFolder, 'foreground.png')
-    img = cv.imread(path)
+def GetForegroundValue(foregroundImages, index, coords):
+    coords = coords.replace('(', '')
+    coords = coords.replace(')', '')
+    coords = coords.replace(' ', '')
 
-    return img[x, y] > 1
+    x, y = coords.split(',', -1)
+
+    img = foregroundImages[index]
+
+    #temp = cv.circle(img, (int(x), int(y)), 5, (255, 0, 0), 2)
+    #print([int(x), int(y)])
+    #cv.imshow('temp', temp)
+    #cv.waitKey(0)
+    return np.linalg.norm(img[int(x), int(y)]) > 1
+
+
+def GenerateForeground():
+    global frameIndex
+    foregroundImages = []
+    for i in range(4):
+        camFolder = "cam" + str(i + 1)
+        path = os.path.join("data", camFolder)
+        videoName = os.path.join(path, "video.avi")
+        video = cv.VideoCapture(videoName)
+        totalFrames = video.get(cv.CAP_PROP_FRAME_COUNT)
+        # check for valid frame number
+        if frameIndex >= 0 & frameIndex <= totalFrames:
+            video.set(cv.CAP_PROP_POS_FRAMES, frameIndex)
+            ret, frame = video.read()
+            result = bs.backgroundSubtraction(frame, i)
+            foregroundImages.append(result)
+        else:
+            print("ERROR: Invalid Frame")
+
+    return foregroundImages
 
 
 def set_voxel_positions(width, height, depth):
+    global frameIndex
     # loading lookup table from json file
     # TODO: Voxels is a dictionary that each voxel (3d point) is the key and projected 2d points are value
-    voxels = loadJson()
+    foregroundImages = GenerateForeground()
+    if frameIndex == 1:
+        print("first frame")
 
-    rotation, translation, intrinsicMatrix, dist = getData()
+    else:
+        print(frameIndex)
 
     Xl = 0
     Xh = 7
@@ -90,38 +127,42 @@ def set_voxel_positions(width, height, depth):
     Zl = 2
     Zh = -13
 
-    # Generates random voxel locations
-    # TODO: You need to calculate proper voxel arrays instead of random ones.
     data, colors = [], []
-    for i in range(4):
-        for x in range(Xl, Xh):
-            for y in range(Yl, Yh):
-                for z in range(Zh, Zl):
-                    voxelPoint = np.float32((x, y, z)) * tileSize
-                    voxelCoordinates, jac = cv.projectPoints(voxelPoint, rotation[i], translation[i],
-                                                             intrinsicMatrix[i], dist[i])
-                    if GetForeground(i + 1, voxelCoordinates[0][0][0], voxelCoordinates[0][0][1]):
-                        data.append(voxelCoordinates)
-                        colors.append([x / width, z / depth, y / height])
-        print("Done")
 
-    #
-    #             # if random.randint(0, 1000) < 5:
-    #             #     data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
-    #             #     colors.append([x / width, z / depth, y / height])
-    # for x in range(Xl, Xh, 4):
-    #     for y in range(Yl, Yh, 4):
-    #         for z in range(Zl, Zh, 4):
-    #             if random.randint(0, 1000) < 5:
-    #                 colors.append([x / width, z / depth, y / height])
+    for x in range(Xl, Xh):
+        for y in range(Yl, Yh):
+            for z in range(Zh, Zl):
+                voxelPoint = np.float32((x, y, z)) * tileSize
+                Xc = voxelPoint[0]
+                Yc = voxelPoint[1]
+                Zc = voxelPoint[2]
+                boolValues = []
+                for j in range(4):
+                    if GetForegroundValue(foregroundImages, j, voxels[str((Xc, Yc, Zc))][j]):
+                        boolValues.append(True)
+                    else:
+                        boolValues.append(False)
+                        break
 
-    # data.append(framePoint)
+                # #print(boolValues)
+                scalar = 0.01
+                fixedPoint = (Xc * scalar, -Zc * scalar, Yc * scalar)
 
+                if np.all(boolValues):
+                    data.append((fixedPoint[0],
+                                 fixedPoint[1],
+                                 fixedPoint[2]))
+                    colors.append([x / width, z / depth, y / height])
+
+    frameIndex += 1
     return data, colors
 
 
 def get_cam_positions():
     rvecs, tvecs, intrinsicMatrix, dist = getData()
+    global voxels
+    voxels = loadJson()
+    bs.createBackgroundModel()
     Positions = []
     for i in range(4):
         rotM = cv.Rodrigues(rvecs[i])[0]

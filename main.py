@@ -378,12 +378,31 @@ def checkExtrinsic():
         os.chdir("..")
 
 
+def GenerateForeground():
+
+    foregroundImages = []
+    for i in range(4):
+        camFolder = "cam" + str(i + 1)
+        path = os.path.join("data", camFolder)
+        videoName = os.path.join(path, "video.avi")
+        video = cv.VideoCapture(videoName)
+        video.set(cv.CAP_PROP_POS_FRAMES, 1)
+        ret, frame = video.read()
+        result = bs.backgroundSubtraction(frame, i)
+        cv.imshow("result", result)
+        cv.waitKey(0)
+        #cv.DestroyAllWindows()
+        foregroundImages.append(result)
+    return foregroundImages
+
+
 if __name__ == '__main__':
 
     #findCameraIntrinsic()
     #findCameraExtrinsic()
     #createLookupTable()
-    checkExtrinsic()
+    #checkExtrinsic()
     #checkVoxels()
-    #backgroundModels = bs.createBackgroundModel()
+    backgroundModels = bs.createBackgroundModel()
+    GenerateForeground()
     #bs.backgroundSubtraction(backgroundModels)
