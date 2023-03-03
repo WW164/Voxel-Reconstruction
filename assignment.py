@@ -4,21 +4,28 @@ import numpy as np
 import cv2 as cv
 import os
 from numpy import load
-import json
-import background_subtraction as bs
 import pickle
+import background_subtraction as bs
+import time
 
 block_size = 1
 frameCellWidth = 1000
 frameCellHeight = 1000
 tileSize = 115
 frameIndex = 1
+pixels = []
 voxels = []
+previousForegroundImages = []
+voxelsOnCam = {0: [], 1: [], 2: [], 3: []}
 
 
-def loadPickle():
-    with open('lookuptable.pickle', 'rb') as handle:
-        lookupTable = pickle.load(handle)
+def loadPickle(type):
+    if type == 'voxels':
+        with open('lookuptable.pickle', 'rb') as handle:
+            lookupTable = pickle.load(handle)
+    else:
+        with open('xor.pickle', 'rb') as handle:
+            lookupTable = pickle.load(handle)
 
     return lookupTable
 
@@ -61,18 +68,15 @@ def generate_grid(width, depth):
 
 
 def GetForegroundValue(foregroundImages, index, coords):
-    coords = coords.replace('(', '')
-    coords = coords.replace(')', '')
-    coords = coords.replace(' ', '')
 
-    x, y = coords.split(',', -1)
+    x, y = coords
 
     img = foregroundImages[index]
 
-    #temp = cv.circle(img, (int(x), int(y)), 5, (255, 0, 0), 2)
-    #print([int(x), int(y)])
-    #cv.imshow('temp', temp)
-    #cv.waitKey(0)
+    # temp = cv.circle(img, (int(x), int(y)), 5, (255, 0, 0), 2)
+    # print([int(x), int(y)])
+    # cv.imshow('temp', temp)
+    # cv.waitKey(0)
     return np.linalg.norm(img[int(x), int(y)]) > 1
 
 
@@ -97,17 +101,89 @@ def GenerateForeground():
     return foregroundImages
 
 
+def finaliseVoxels(width, height, depth):
+    data, colors = [], []
+    onVoxels = set.intersection(set(voxelsOnCam[0]), set(voxelsOnCam[1]), set(voxelsOnCam[2]), set(voxelsOnCam[3]))
+
+    for vox in onVoxels:
+
+        Xc = vox[0]
+        Yc = vox[1]
+        Zc = vox[2]
+
+        scalar = 0.01
+        fixedPoint = (Xc * scalar, -Zc * scalar, Yc * scalar)
+        data.append((fixedPoint[0],
+                     fixedPoint[1],
+                     fixedPoint[2]))
+        colors.append([fixedPoint[0] / width, fixedPoint[1] / depth, fixedPoint[2] / height])
+
+    return data, colors
+
+
+def FirstFrameVoxelPositions(foregroundImages, width, height, depth):
+    global voxelsOnCam
+
+    for pixel in pixels:
+        for j in range(len(foregroundImages)):
+            if np.linalg.norm(foregroundImages[j][pixel]) > 1:
+                for voxel in pixels[pixel]:
+                    if voxel[3] == j:
+                        vCoord = (voxel[0], voxel[1], voxel[2])
+                        voxelsOnCam[j].append(vCoord)
+    data, colors = finaliseVoxels(width, height, depth)
+
+    return data, colors
+
+
+def XORFrameVoxelPositions(currImgs, prevImgs, width, height, depth):
+    global voxelsOnCam, pixels
+    start_time = time.time()
+    for i in range(len(currImgs)):
+        mask_xor = cv.bitwise_xor(currImgs[i], prevImgs[i])
+        nowOnPixels = cv.bitwise_and(currImgs[i], mask_xor)
+        nowOnPixels = np.argwhere(nowOnPixels == 255)
+        for pixel in nowOnPixels:
+            x, y = pixel
+            if (x, y) in pixels:
+                for values in pixels[(x, y)]:
+                    if values[3] == i:
+                        vCoord = (values[0], values[1], values[3])
+                        voxelsOnCam[i].append(vCoord)
+
+        not_current_image = (255-currImgs[i])
+        nowOffPixels = cv.bitwise_and(not_current_image, mask_xor)
+        nowOffPixels = np.argwhere(nowOffPixels == 255)
+        for pixel in nowOffPixels:
+            x, y = pixel
+            if (x, y) in pixels:
+                for values in pixels[(x, y)]:
+                    if values[3] == i:
+                        vCoord = (values[0], values[1], values[3])
+                        for j in range(len(voxelsOnCam[i]) - 1):
+                            if voxelsOnCam[i][j] == vCoord:
+                                del voxelsOnCam[i][j]
+                                break
+
+    data, colors = finaliseVoxels(width, height, depth)
+    #print("My new method took", time.time() - start_time, "to run")
+    return data, colors
+
+
 def set_voxel_positions(width, height, depth):
-    global frameIndex
-    # loading lookup table from json file
-    # TODO: Voxels is a dictionary that each voxel (3d point) is the key and projected 2d points are value
+    global frameIndex, previousForegroundImages
     foregroundImages = GenerateForeground()
+
     if frameIndex == 1:
-        print("first frame")
+        data, colors = FirstFrameVoxelPositions(foregroundImages, width, height, depth)
 
     else:
-        print(frameIndex)
+        data, colors = (XORFrameVoxelPositions(foregroundImages, previousForegroundImages, width, height, depth))
+    previousForegroundImages = foregroundImages
+    frameIndex += 1
+    return data, colors
 
+    start_time = time.time()
     Xl = 0
     Xh = 7
     Yl = -4
@@ -126,7 +202,7 @@ def set_voxel_positions(width, height, depth):
                 Zc = voxelPoint[2]
                 boolValues = []
                 for j in range(4):
-                    if GetForegroundValue(foregroundImages, j, voxels[(Xc, Yc, Zc)][j]):
+                    if GetForegroundValue(foregroundImages, j, voxels[Xc, Yc, Zc][j]):
                         boolValues.append(True)
                     else:
                         boolValues.append(False)
@@ -137,20 +213,24 @@ def set_voxel_positions(width, height, depth):
                 fixedPoint = (Xc * scalar, -Zc * scalar, Yc * scalar)
 
                 if np.all(boolValues):
-                    data.append((fixedPoint[0],
+                    data.append((fixedPoint[0] + 15,
                                  fixedPoint[1],
                                  fixedPoint[2]))
                     colors.append([x / width, z / depth, y / height])
-
+    #print("done")
+    #print("My old method took", time.time() - start_time, "to run")
     frameIndex += 1
     return data, colors
 
 
 def get_cam_positions():
-    rvecs, tvecs, intrinsicMatrix, dist = getData()
-    global voxels
-    voxels = loadPickle()
+    # loading lookup table from json file
+    global pixels, voxels
+    pixels = loadPickle("xor")
+    voxels = loadPickle("voxels")
     bs.createBackgroundModel()
+
+    rvecs, tvecs, intrinsicMatrix, dist = getData()
     Positions = []
     for i in range(4):
         rotM = cv.Rodrigues(rvecs[i])[0]
@@ -159,7 +239,7 @@ def get_cam_positions():
         Positions.append(camPosFix)
 
     return [Positions[0], Positions[1], Positions[2], Positions[3]], \
-           [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
+        [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
 
 
 def get_cam_rotation_matrices():

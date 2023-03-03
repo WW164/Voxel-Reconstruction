@@ -75,7 +75,7 @@ def RefineOutput(image):
     contours = 1000000;
     while contours != 1:
         contours = Apply_Contours(0)
-    dilatation(2)
+    dilatation(3)
     return src
 
     '''

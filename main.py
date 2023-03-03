@@ -388,19 +388,13 @@ def xorLookupTable():
     Zl = 2
     Zh = -13
 
-    # save the output in result
-    result = []
-    # GetForeground(1)
-
     for i in range(4):
 
-        voxelCoordinates = []
-        
         # Read in the foreground image.
         camFolder = "cam" + str(i + 1)
         path = os.path.join("data", camFolder)
-        foregroundImagePath = os.path.join("data", camFolder, 'foreground.png')
-        foregroundImage = cv.imread(foregroundImagePath)
+        #foregroundImagePath = os.path.join("data", camFolder, 'foreground.png')
+        #foregroundImage = cv.imread(foregroundImagePath)
 
         # read in the camera matrix
         with np.load(os.path.join(path, 'camera_matrix.npz')) as file:
@@ -411,7 +405,6 @@ def xorLookupTable():
         for x in range(Xl, Xh):
             for y in range(Yl, Yh):
                 for z in range(Zh, Zl):
-                    output = []
                     # Get the projected point of the voxel position.
                     voxelPoint = np.float32((x, y, z)) * tileSize
                     voxelCoordinate, jac = cv.projectPoints(voxelPoint, rotation, translation, intrinsicMatrix, dist)
@@ -422,25 +415,15 @@ def xorLookupTable():
                     Yc = voxelPoint[1]
                     Zc = voxelPoint[2]
 
-                    output.append((Xc, Yc, Zc, i))
-                    voxelCoordinates.append(voxelCoordinate)
-
                     if (fy, fx) in cameraLookupTable:
                         cameraLookupTable[(fy, fx)].append((Xc, Yc, Zc, i))
                     else:
-                        cameraLookupTable[(fy, fx)] = output
+                        cameraLookupTable[(fy, fx)] = [(Xc, Yc, Zc, i)]
 
-        # # Draw the voxels for confirmation.
-        # for voxel in voxelCoordinates:
-        #     img = cv.circle(foregroundImage, (int(voxel[0][0][0]), int(voxel[0][0][1])), 5, (255, 0, 0), 2)
-        #     cv.imshow('img', img)
-        #     cv.waitKey(1)
-        # result.append(voxelCoordinates)
-
-    with open('xor.pickle', 'wb') as handle:
+    with open('xor2.pickle', 'wb') as handle:
         pickle.dump(cameraLookupTable, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open('xor.pickle', 'rb') as handle:
+    with open('xor2.pickle', 'rb') as handle:
         lookupTable = pickle.load(handle)
 
     print(lookupTable)
@@ -450,9 +433,9 @@ if __name__ == '__main__':
     # findCameraIntrinsic()
     # findCameraExtrinsic()
     # createLookupTable()
-    checkExtrinsic()
+    #checkExtrinsic()
     # checkVoxels()
-    # xorLookupTable()
+    xorLookupTable()
     # backgroundModels = bs.createBackgroundModel()
     # GenerateForeground()
     # bs.backgroundSubtraction(backgroundModels)
