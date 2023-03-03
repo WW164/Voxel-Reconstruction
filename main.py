@@ -294,12 +294,15 @@ def checkVoxels():
     result = []
     # GetForeground(1)
 
+    color = checkColor()
+
     for i in range(4):
         # Read in the foreground image.
         voxelCoordinates = []
         camFolder = "cam" + str(i + 1)
         path = os.path.join("data", camFolder)
         foregroundImagePath = os.path.join("data", camFolder, 'foreground.png')
+        # originalImagePath = os.path.join("data", camFolder, "video.avi")
         foregroundImage = cv.imread(foregroundImagePath)
 
         # read in the camera matrix
@@ -308,9 +311,10 @@ def checkVoxels():
         with np.load(os.path.join(path, 'camera_matrix_extrinsic.npz')) as file:
             rotation, translation = [file[i] for i in ['rvec', 'tvec']]
 
-        for x in range(Xl, Xh):
-            for y in range(Yl, Yh):
-                for z in range(Zh, Zl):
+        for x in np.arange(Xl, Xh, 0.25):
+            for y in np.arange(Yl, Yh, 0.25):
+                for z in np.arange(Zh, Zl, 0.25):
+
                     output = []
                     # Get the projected point of the voxel position.
                     voxelPoint = np.float32((x, y, z)) * tileSize
@@ -331,14 +335,19 @@ def checkVoxels():
                         cameraLookupTable[(Xc, Yc, Zc)] = output
 
         # Draw the voxels for confirmation.
-        # for voxel in voxelCoordinates:
-        #     img = cv.circle(foregroundImage, (int(voxel[0][0][0]), int(voxel[0][0][1])), 5, (255, 0, 0), 2)
-        #     cv.imshow('img', img)
-        #     cv.waitKey(1)
-        # result.append(voxelCoordinates)
+        for voxel in voxelCoordinates:
+            x = int(voxel[0][0][0])
+            y = int(voxel[0][0][1])
+            # rgb = (int(color[i][(x, y)][0], int(color[i][(x, y)][1], int(color[i][(x, y)][2]))))
+            b, g, r = color[i][(x, y)]
 
-    with open('lookuptable.pickle', 'wb') as handle:
-        pickle.dump(cameraLookupTable, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            img = cv.circle(foregroundImage, (int(voxel[0][0][0]), int(voxel[0][0][1])), 1, (int(b), int(g), int(r)), 2)
+            cv.imshow('img', img)
+            cv.waitKey(1)
+        result.append(voxelCoordinates)
+
+    # with open('lookuptable.pickle', 'wb') as handle:
+    #     pickle.dump(cameraLookupTable, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def checkExtrinsic():
@@ -390,6 +399,9 @@ def xorLookupTable():
 
     for i in range(4):
 
+        voxelCoordinates = []
+
+
         # Read in the foreground image.
         camFolder = "cam" + str(i + 1)
         path = os.path.join("data", camFolder)
@@ -429,13 +441,51 @@ def xorLookupTable():
     print(lookupTable)
 
 
+def checkColor():
+    color = {}
+    bgr = {}
+
+    for i in range(4):
+
+        bgr = {}
+
+        camFolder = "cam" + str(i + 1)
+        path = os.path.join("data", camFolder)
+        videoName = os.path.join(path, "video.avi")
+        video = cv.VideoCapture(videoName)
+
+        success, frame = video.read()
+        if success:
+            height, width = frame.shape[: 2]
+
+        # Loop through every pixel in the image
+        for y in range(height):
+            for x in range(width):
+                # Get the RGB color of the pixel
+                (blue, green, red) = frame[y, x]
+                bgr[(x, y)] = (blue, green, red)
+                color[i] = bgr
+
+    print(color)
+
+    return color
+
+
 if __name__ == '__main__':
+
     # findCameraIntrinsic()
     # findCameraExtrinsic()
     # createLookupTable()
+
     #checkExtrinsic()
     # checkVoxels()
-    xorLookupTable()
+    #xorLookupTable()
+
+    # checkExtrinsic()
+    checkVoxels()
+    # checkColor()
+    # xorLookupTable()
+
     # backgroundModels = bs.createBackgroundModel()
     # GenerateForeground()
     # bs.backgroundSubtraction(backgroundModels)
