@@ -114,7 +114,7 @@ def Apply_Threshold(val):
 
 def Apply_Contours(val):
     global src, temp
-    contour_value = cv.getTrackbarPos(Contour_trackbar, title_refine_window)
+    #contour_value = cv.getTrackbarPos(Contour_trackbar, title_refine_window)
     contours, hierarchy = cv.findContours(src, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
 
     img = src.copy()
@@ -158,8 +158,8 @@ def dilatation(val):
     global src, temp
     #dilatation_size = cv.getTrackbarPos(dilate_trackbar_kernel_size, title_refine_window)
     dilatation_size = val
-    dilation_shape = morph_shape(cv.getTrackbarPos(dilate_trackbar_element_shape, title_refine_window))
-    element = cv.getStructuringElement(dilation_shape, (2 * dilatation_size + 1, 2 * dilatation_size + 1),
+    #dilation_shape = morph_shape(cv.getTrackbarPos(dilate_trackbar_element_shape, title_refine_window))
+    element = cv.getStructuringElement(0, (2 * dilatation_size + 1, 2 * dilatation_size + 1),
                                        (dilatation_size, dilatation_size))
     dilate_dst = cv.dilate(src, element)
     #cv.imshow(title_refine_window, dilate_dst)

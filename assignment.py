@@ -30,6 +30,13 @@ def loadPickle(type):
     return lookupTable
 
 
+def loadColor():
+    with open('colorTest.pickle', 'rb') as handle:
+        colorData = pickle.load(handle)
+
+    return colorData
+
+
 def getData():
     rvecs = []
     tvecs = []
@@ -102,8 +109,14 @@ def GenerateForeground():
 
 
 def finaliseVoxels(width, height, depth):
+    global voxels
+
+    colorData = loadColor()
+
     data, colors = [], []
     onVoxels = set.intersection(set(voxelsOnCam[0]), set(voxelsOnCam[1]), set(voxelsOnCam[2]), set(voxelsOnCam[3]))
+
+    temp = 0
 
     for vox in onVoxels:
 
@@ -116,7 +129,21 @@ def finaliseVoxels(width, height, depth):
         data.append((fixedPoint[0],
                      fixedPoint[1],
                      fixedPoint[2]))
-        colors.append([fixedPoint[0] / width, fixedPoint[1] / depth, fixedPoint[2] / height])
+
+        flag = True
+        for pixel in pixels:
+            for coordinates in pixels[pixel]:
+                # For each on-voxel finds the voxel and its corresponding pixel
+                if (Xc, Yc, Zc) == (coordinates[0], coordinates[1], coordinates[2]) :
+                    temp += 1
+                    while flag:
+                        if pixel in colorData:
+                            # Append the pixel color to colors
+                            blue = (colorData[pixel][0]) / 255
+                            green = (colorData[pixel][1]) / 255
+                            red = (colorData[pixel][2]) / 255
+                            colors.append([blue, green, red])
+                            flag = False
 
     return data, colors
 
@@ -166,7 +193,7 @@ def XORFrameVoxelPositions(currImgs, prevImgs, width, height, depth):
                                 break
 
     data, colors = finaliseVoxels(width, height, depth)
-    #print("My new method took", time.time() - start_time, "to run")
+    print("My new method took", time.time() - start_time, "to run")
     return data, colors
 
 
@@ -254,6 +281,11 @@ def get_cam_rotation_matrices():
 
     cam_angles = [[0, 0, 90], [0, 0, 90], [0, 0, 90], [0, 0, 90]]
     cam_rotations = [glm.mat4(RotMs[0]), glm.mat4(RotMs[1]), glm.mat4(RotMs[2]), glm.mat4(RotMs[3])]
+
+    print("rotation cam1:", "\n", RotMs[0], "\n",
+          "rotation cam2:", "\n", RotMs[1], "\n",
+          "rotation cam3:", "\n", RotMs[2], "\n",
+          "rotation cam4:", "\n", RotMs[3], "\n",)
 
     for c in range(len(cam_rotations)):
         cam_rotations[c] = glm.rotate(cam_rotations[c], cam_angles[c][0] * np.pi / 180, [1, 0, 0])
