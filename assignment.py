@@ -19,6 +19,7 @@ previousForegroundImages = []
 voxelsOnCam = {0: [], 1: [], 2: [], 3: []}
 
 
+# Load the lookup table.
 def loadPickle(type):
     if type == 'voxels':
         with open('lookuptable.pickle', 'rb') as handle:
@@ -30,6 +31,7 @@ def loadPickle(type):
     return lookupTable
 
 
+# Load the color file.
 def loadColor():
     with open('colorTest.pickle', 'rb') as handle:
         colorData = pickle.load(handle)
@@ -37,6 +39,7 @@ def loadColor():
     return colorData
 
 
+# Load in the cameras intrinsic and extrinsic data
 def getData():
     rvecs = []
     tvecs = []
@@ -74,19 +77,8 @@ def generate_grid(width, depth):
     return data, colors
 
 
-def GetForegroundValue(foregroundImages, index, coords):
-
-    x, y = coords
-
-    img = foregroundImages[index]
-
-    # temp = cv.circle(img, (int(x), int(y)), 5, (255, 0, 0), 2)
-    # print([int(x), int(y)])
-    # cv.imshow('temp', temp)
-    # cv.waitKey(0)
-    return np.linalg.norm(img[int(x), int(y)]) > 1
-
-
+# Load in the current frame and pass it to the background subtraction algorithm.
+# Returns the 4 foreground images for this frame
 def GenerateForeground():
     global frameIndex
     foregroundImages = []
@@ -108,6 +100,7 @@ def GenerateForeground():
     return foregroundImages
 
 
+# Determine which voxels are "on" in all four cameras then find the colour for that voxel.
 def finaliseVoxels(width, height, depth):
     global voxels
 
@@ -153,6 +146,7 @@ def finaliseVoxels(width, height, depth):
     return data, colors
 
 
+# Loop through every pixel in the lookup table and determine if its on, if so add to camera voxel mapping.
 def FirstFrameVoxelPositions(foregroundImages, width, height, depth):
     global voxelsOnCam
 
@@ -168,6 +162,7 @@ def FirstFrameVoxelPositions(foregroundImages, width, height, depth):
     return data, colors
 
 
+# Loop through changed pixels and add or remove them from the camera voxel mapping respectively
 def XORFrameVoxelPositions(currImgs, prevImgs, width, height, depth):
     global voxelsOnCam, pixels
     start_time = time.time()
@@ -202,6 +197,7 @@ def XORFrameVoxelPositions(currImgs, prevImgs, width, height, depth):
     return data, colors
 
 
+# Run the appropriate function based on the current frame. Save previous foreground images.
 def set_voxel_positions(width, height, depth):
     global frameIndex, previousForegroundImages
     foregroundImages = GenerateForeground()
@@ -215,46 +211,8 @@ def set_voxel_positions(width, height, depth):
     frameIndex += 1
     return data, colors
 
-    start_time = time.time()
-    Xl = 0
-    Xh = 7
-    Yl = -4
-    Yh = 5
-    Zl = 2
-    Zh = -13
 
-    data, colors = [], []
-
-    for x in range(Xl, Xh):
-        for y in range(Yl, Yh):
-            for z in range(Zh, Zl):
-                voxelPoint = np.float32((x, y, z)) * tileSize
-                Xc = voxelPoint[0]
-                Yc = voxelPoint[1]
-                Zc = voxelPoint[2]
-                boolValues = []
-                for j in range(4):
-                    if GetForegroundValue(foregroundImages, j, voxels[Xc, Yc, Zc][j]):
-                        boolValues.append(True)
-                    else:
-                        boolValues.append(False)
-                        break
-
-                # #print(boolValues)
-                scalar = 0.01
-                fixedPoint = (Xc * scalar, -Zc * scalar, Yc * scalar)
-
-                if np.all(boolValues):
-                    data.append((fixedPoint[0] + 15,
-                                 fixedPoint[1],
-                                 fixedPoint[2]))
-                    colors.append([x / width, z / depth, y / height])
-    #print("done")
-    #print("My old method took", time.time() - start_time, "to run")
-    frameIndex += 1
-    return data, colors
-
-
+# Load relevant data and then set the cameras position based on its extrinsic data.
 def get_cam_positions():
     # loading lookup table from json file
     global pixels, voxels
@@ -274,6 +232,7 @@ def get_cam_positions():
         [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
 
 
+# set the cameras rotations based on its extrinsic data.
 def get_cam_rotation_matrices():
     rvecs, tvecs, intrinsicMatrix, dist = getData()
     RotMs = []

@@ -83,6 +83,7 @@ def click_event(event, x, y, flag, params):
         img = cv.circle(params, (int(x), int(y)), 5, (255, 0, 0), 2)
         cv.imshow('img', img)
 
+
 # Find corners for a given image
 def findCorners(sampleImage):
     global manual_points_entered
@@ -110,6 +111,7 @@ def findCorners(sampleImage):
             cv.waitKey(500)
 
     return objPoints, imgPoints, ret
+
 
 # Find camera matrix by finding corners of a chessboard and calibrateCamera function
 def findCameraIntrinsic():
@@ -142,25 +144,9 @@ def findCameraIntrinsic():
                 ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objectPoints, imagePoints, gray.shape[::-1], None,
                                                                   None)
                 print("calibrated")
-    # Draw axis for confirmation
-    # np.savez('camera_matrix', mtx=mtx, dist=dist)
-    # print("saved")
-    #
-    # with np.load('camera_matrix.npz') as file:
-    #     intrinsicMatrix, dist = [file[i] for i in ['mtx', 'dist']]
-    #
-    # axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).reshape(-1, 3) * tileSize
-    # video.set(cv.CAP_PROP_POS_FRAMES, 0)
-    # success, image = video.read()
-    # if success:
-    #     objectPoints, imagePoints, ret = findCorners(image)
-    #     if ret:
-    #         ret, rotation, translation = cv.solvePnP(objP, corners2, intrinsicMatrix, dist)
-    #         imgPts, jac = cv.projectPoints(axis, rotation, translation, intrinsicMatrix, dist)
-    #         draw(image, corners2, imgPts)
+        os.chdir("..")
+        os.chdir("..")
 
-        os.chdir("..")
-        os.chdir("..")
 
 # Draw axis for a given set of image points and origin
 def draw(image, corners, imgPts):
@@ -170,6 +156,7 @@ def draw(image, corners, imgPts):
     img = cv.line(image, corner, tuple(imgPts[2].ravel().astype(int)), (0, 0, 255), 5)
     cv.imshow("img", img)
     cv.waitKey(0)
+
 
 # Find camera extrinsic parameters by finding corners and solvePnP function
 def findCameraExtrinsic():
@@ -210,6 +197,7 @@ def GetForeground(camera):
         for y in range(0, dimensions[1]):
             if np.linalg.norm(img[x, y]) > 1:
                 print(x, y)
+
 
 # Create lookup table by iterating through voxel space and projecting points
 def checkVoxels():
@@ -263,22 +251,6 @@ def checkVoxels():
                     else:
                         cameraLookupTable[(Xc, Yc, Zc)] = output
 
-        # Draw the voxels per view for confirmation.
-        # for voxel in voxelCoordinates:
-        #     x = int(voxel[0][0][0])
-        #     y = int(voxel[0][0][1])
-        #     # rgb = (int(color[i][(x, y)][0], int(color[i][(x, y)][1], int(color[i][(x, y)][2]))))
-        #     b, g, r = color[i][(x, y)]
-        #
-        #     img = cv.circle(foregroundImage, (int(voxel[0][0][0]), int(voxel[0][0][1])), 1, (int(b), int(g), int(r)), 2)
-        #     cv.imshow('img', img)
-        #     cv.waitKey(1)
-        # result.append(voxelCoordinates)
-
-    # Save lookup table as a pickle file
-    # with open('lookuptable.pickle', 'wb') as handle:
-    #     pickle.dump(cameraLookupTable, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
 
 def GenerateForeground():
     foregroundImages = []
@@ -295,6 +267,7 @@ def GenerateForeground():
         # cv.DestroyAllWindows()
         foregroundImages.append(result)
     return foregroundImages
+
 
 # Generate lookup table for XOR method
 def xorLookupTable():
@@ -347,6 +320,7 @@ def xorLookupTable():
         pickle.dump(cameraLookupTable, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     print(cameraLookupTable)
+
 
 # Store colors for each pixel
 def checkColor():
@@ -410,12 +384,11 @@ def checkColor():
     print(colorData)
 
 
-if __name__ == '__main__':
+#if __name__ == '__main__':
     # findCameraIntrinsic()
     # findCameraExtrinsic()
     # createLookupTable()
-
-    checkVoxels()
+    #checkVoxels()
     # xorLookupTable()
 
     # checkColor()
