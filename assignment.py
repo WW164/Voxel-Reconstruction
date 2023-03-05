@@ -111,6 +111,8 @@ def GenerateForeground():
 def finaliseVoxels(width, height, depth):
     global voxels
 
+    colorFlag = False
+
     colorData = loadColor()
 
     data, colors = [], []
@@ -130,20 +132,23 @@ def finaliseVoxels(width, height, depth):
                      fixedPoint[1],
                      fixedPoint[2]))
 
-        flag = True
-        for pixel in pixels:
-            for coordinates in pixels[pixel]:
-                # For each on-voxel finds the voxel and its corresponding pixel
-                if (Xc, Yc, Zc) == (coordinates[0], coordinates[1], coordinates[2]) :
-                    temp += 1
-                    while flag:
-                        if pixel in colorData:
-                            # Append the pixel color to colors
-                            blue = (colorData[pixel][0]) / 255
-                            green = (colorData[pixel][1]) / 255
-                            red = (colorData[pixel][2]) / 255
-                            colors.append([blue, green, red])
-                            flag = False
+        if colorFlag:
+            flag = True
+            for pixel in pixels:
+                for coordinates in pixels[pixel]:
+                    # For each on-voxel finds the voxel and its corresponding pixel
+                    if (Xc, Yc, Zc) == (coordinates[0], coordinates[1], coordinates[2]):
+                        temp += 1
+                        while flag:
+                            if pixel in colorData:
+                                # Append the pixel color to colors
+                                blue = (colorData[pixel][0]) / 255
+                                green = (colorData[pixel][1]) / 255
+                                red = (colorData[pixel][2]) / 255
+                                colors.append([blue, green, red])
+                                flag = False
+        else:
+            colors.append([Xc / width, Zc / depth, Yc / height])
 
     return data, colors
 
