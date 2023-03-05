@@ -20,6 +20,7 @@ dilate_trackbar_kernel_size = 'Dilate Kernel size:\n 2n +1'
 title_refine_window = 'Refine Values'
 
 
+# Create the background model using the background.avi video
 def createBackgroundModel():
     medianFrames = {}
 
@@ -53,114 +54,48 @@ def createBackgroundModel():
     backgroundModels = medianFrames
 
 
+# Convert the image to get it ready for background subtraction.
 def backgroundSubtraction(frame, cameraIndex):
-        global backgroundModels
-        #print(len(backgroundModels))
-        hsvFrame = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
-        dFrame = cv.absdiff(hsvFrame, backgroundModels[cameraIndex])
-        dFrame = cv.cvtColor(dFrame, cv.COLOR_BGR2GRAY)
-
-        img = RefineOutput(dFrame)
-        return img
-
-
-def RefineOutput(image):
-    global src
-    src = image
-    if src is None:
-        print('Could not open or find the image: ', image)
-        exit(0)
-
-    Apply_Threshold(0)
-    contours = 1000000;
-    while contours != 1:
-        contours = Apply_Contours(0)
-    dilatation(3)
-    return src
-
-    '''
-    legacy code
-    cv.namedWindow(title_refine_window)
-    cv.createTrackbar(erode_trackbar_element_shape, title_refine_window, 0, max_elem, erosion)
-    cv.createTrackbar(erode_trackbar_kernel_size, title_refine_window, 0, max_kernel_size, erosion)
-    cv.createTrackbar(dilate_trackbar_element_shape, title_refine_window, 0, max_elem, dilatation)
-    cv.createTrackbar(dilate_trackbar_kernel_size, title_refine_window, 0, max_kernel_size, dilatation)
-    erosion(0)
-    while True:
-        k = cv.waitKey(0)
-        if k == ord('e'):  # e key to save
-            src = temp
-            print("saved")
-        elif k == ord('q'):  # q key to commit the image to the list
-            src = temp
-            Results.append(src)
-            print("committed")
-            break
-        else:  # normally -1 returned,so don't print it
-            break
-    print('returning src')
-    '''
+    global backgroundModels
+    hsvFrame = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
+    dFrame = cv.absdiff(hsvFrame, backgroundModels[cameraIndex])
+    dFrame = cv.cvtColor(dFrame, cv.COLOR_BGR2GRAY)
+    dFrame = Apply_Threshold(30, dFrame)
+    dFrame = Apply_Contours(dFrame)
+    dFrame = dilatation(3, dFrame)
+    return dFrame
 
 
-
-def Apply_Threshold(val):
-    global src, temp
+# First apply a flat threshold to the image to binarize
+def Apply_Threshold(val, frame):
     # Threshold to binarize
-    th, dFrame = cv.threshold(src, 30, 255, cv.THRESH_BINARY)
-    src = dFrame
-    #temp = dFrame
-    #cv.imshow(title_refine_window, src)
+    th, dFrame = cv.threshold(frame, val, 255, cv.THRESH_BINARY)
+    return dFrame
 
 
-def Apply_Contours(val):
-    global src, temp
-    #contour_value = cv.getTrackbarPos(Contour_trackbar, title_refine_window)
-    contours, hierarchy = cv.findContours(src, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
+# Then recursively remove all unwanted contours until there is only 1 left.
+def Apply_Contours(frame):
+    contours = 1000000
+    image = frame
+    while contours != 1:
+        contours, hierarchy = cv.findContours(image, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
+        sorted_contours = sorted(contours, key=cv.contourArea, reverse=True)
+        img = image.copy()
+        mask = np.ones(img.shape[:2], dtype="uint8") * 255
+        for i in range(len(sorted_contours)):
+            if i != 0:
+                cv.drawContours(mask, sorted_contours[i], -1, 0, -1)
+        # remove the contours from the image
+        image = cv.bitwise_and(img, img, mask=mask)
+        contours = len(sorted_contours)
 
-    img = src.copy()
-    sorted_contours = sorted(contours, key=cv.contourArea, reverse=True)
-    largest_item = sorted_contours[0]
-
-    mask = np.ones(img.shape[:2], dtype="uint8") * 255
-    #print(len(sorted_contours))
-    for i in range(len(sorted_contours)):
-        if i != 0:
-            cv.drawContours(mask, sorted_contours[i], -1, 0, -1)
-    # remove the contours from the image and show the resulting images
-    image = cv.bitwise_and(img, img, mask=mask)
-    #cv.imshow(title_refine_window, image)
-    src = image
-    return len(sorted_contours)
+    return image
 
 
-def morph_shape(val):
-    if val == 0:
-        return cv.MORPH_RECT
-    elif val == 1:
-        return cv.MORPH_CROSS
-    elif val == 2:
-        return cv.MORPH_ELLIPSE
-
-
-def erosion(val):
-    global src, temp
-    erosion_size = cv.getTrackbarPos(erode_trackbar_kernel_size, title_refine_window)
-    erosion_shape = morph_shape(cv.getTrackbarPos(erode_trackbar_element_shape, title_refine_window))
-
-    element = cv.getStructuringElement(erosion_shape, (2 * erosion_size + 1, 2 * erosion_size + 1),
-                                       (erosion_size, erosion_size))
-    erode_dst = cv.erode(src, element)
-    cv.imshow(title_refine_window, erode_dst)
-    temp = erode_dst
-
-
-def dilatation(val):
-    global src, temp
-    #dilatation_size = cv.getTrackbarPos(dilate_trackbar_kernel_size, title_refine_window)
+# Finally dilate the image using a flat value of 3 to fill in holes
+def dilatation(val, frame):
     dilatation_size = val
-    #dilation_shape = morph_shape(cv.getTrackbarPos(dilate_trackbar_element_shape, title_refine_window))
     element = cv.getStructuringElement(0, (2 * dilatation_size + 1, 2 * dilatation_size + 1),
                                        (dilatation_size, dilatation_size))
-    dilate_dst = cv.dilate(src, element)
-    #cv.imshow(title_refine_window, dilate_dst)
-    src = dilate_dst
+    dilate_dst = cv.dilate(frame, element)
+    return dilate_dst
